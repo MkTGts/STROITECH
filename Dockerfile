@@ -2,11 +2,12 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-
 COPY package.json ./
+COPY backend/package.json backend/package.json
+COPY frontend/package.json frontend/package.json
+COPY shared/package.json shared/package.json
 
-# Устанавливаем зависимости монорепы (workspaces)
+# Устанавливаем зависимости монорепы (включая devDependencies, чтобы был prisma/tsx и т.д.)
 RUN npm install
 
 COPY . .
