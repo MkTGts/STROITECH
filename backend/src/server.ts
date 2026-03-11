@@ -1,6 +1,6 @@
 import { buildApp } from "./app";
 
-const PORT = Number(process.env.PORT) || 4000;
+const PORT = Number(process.env.BACKEND_PORT || process.env.PORT) || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
 
 async function start(): Promise<void> {
