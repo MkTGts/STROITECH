@@ -1,3 +1,5 @@
+\"use client\";
+
 import Link from "next/link";
 import {
   HardHat,
@@ -13,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ListingsFeed } from "@/components/features/listings-feed";
+import { useAuthStore } from "@/lib/store";
 
 const CATEGORIES = [
   { icon: HardHat, title: "Ищите строителей", description: "Бригады, отделочники, электрики, сантехники", href: "/listings?categoryType=builders", color: "bg-blue-50 text-blue-600" },
@@ -29,6 +32,8 @@ const FEATURES = [
 ];
 
 export default function HomePage() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
   return (
     <div>
       <section className="bg-gradient-to-br from-primary to-[#1F3E7C] py-16 text-white md:py-24">
@@ -43,17 +48,40 @@ export default function HomePage() {
               Находите строителей, поставщиков и технику по лучшим ценам.
             </p>
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link href="/auth/register">
-                <Button size="lg" variant="secondary" className="gap-2 text-base">
-                  Начать бесплатно
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/listings">
-                <Button size="lg" variant="outline" className="gap-2 border-white/30 text-base text-white hover:bg-white/10">
-                  Смотреть объявления
-                </Button>
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link href="/listings/create">
+                    <Button size="lg" variant="secondary" className="gap-2 text-base">
+                      Разместить объявление
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link href="/objects/create">
+                    <Button size="lg" variant="secondary" className="gap-2 text-base">
+                      Создать объект
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/register">
+                    <Button size="lg" variant="secondary" className="gap-2 text-base">
+                      Начать бесплатно
+                      <ArrowRight className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                  <Link href="/listings">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="gap-2 border-white/30 text-base text-white hover:bg-white/10"
+                    >
+                      Смотреть объявления
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
