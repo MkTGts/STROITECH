@@ -1,4 +1,4 @@
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:4000/ws";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || getDefaultWsUrl();
 
 type WsListener = (data: { type: string; payload: any }) => void;
 
@@ -54,4 +54,10 @@ export function sendWsMessage(type: string, payload: unknown): void {
   if (socket?.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ type, payload }));
   }
+}
+
+function getDefaultWsUrl(): string {
+  if (typeof window === "undefined") return "ws://localhost:4000/ws";
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}/ws`;
 }

@@ -1,4 +1,4 @@
-const API_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000");
+const API_URL = normalizeApiBaseUrl(getPublicEnv("NEXT_PUBLIC_API_URL")) || "/api";
 
 type FetchOptions = RequestInit & {
   params?: Record<string, string | number | undefined>;
@@ -82,9 +82,18 @@ function _getAccessToken(): string | null {
   return localStorage.getItem("accessToken");
 }
 
-function normalizeApiBaseUrl(input: string): string {
+function normalizeApiBaseUrl(input?: string): string | null {
+  if (!input) return null;
   const trimmed = input.replace(/\/+$/, "");
+  // Allow absolute (https://host) or relative (/api) inputs
+  if (trimmed === "/api") return "/api";
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
+}
+
+function getPublicEnv(name: string): string | undefined {
+  // In Next.js client bundles, process may not be typed; use globalThis to avoid TS node typings.
+  const p = (globalThis as any).process;
+  return p?.env?.[name];
 }
 
 async function _tryRefreshToken(): Promise<string | null> {
