@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useAuthStore } from "./store";
+import { useAuthStore, useNotificationStore } from "./store";
 import { connectWs, disconnectWs, onWsMessage } from "./ws";
+import { api } from "./api";
 
 /**
  * Initialize WebSocket connection when user is authenticated.
  */
 export function useWebSocket(): void {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -16,6 +18,35 @@ export function useWebSocket(): void {
     if (token) connectWs(token);
     return () => disconnectWs();
   }, [isAuthenticated]);
+
+  // Глобальное обновление бейджа уведомлений по событиям чата
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    async function refreshChatUnread(): Promise<void> {
+      try {
+        const res = await api<any>("/chat/conversations");
+        const total = (res.data as any[]).reduce(
+          (sum, conv) => sum + (conv.unreadCount || 0),
+          0,
+        );
+        setUnreadCount(total);
+      } catch {
+        // ignore
+      }
+    }
+
+    const unsubscribe = onWsMessage((msg) => {
+      if (msg.type === "new_message" || msg.type === "message_read") {
+        void refreshChatUnread();
+      }
+    });
+
+    // инициализируем счётчик при подключении
+    void refreshChatUnread();
+
+    return unsubscribe;
+  }, [isAuthenticated, setUnreadCount]);
 }
 
 /**

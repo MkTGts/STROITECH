@@ -75,9 +75,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 type NotificationState = {
   unreadCount: number;
   setUnreadCount: (count: number) => void;
+  adjustUnread: (delta: number) => void;
 };
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   unreadCount: 0,
   setUnreadCount: (count) => set({ unreadCount: count }),
+  adjustUnread: (delta) =>
+    set((state) => ({ unreadCount: Math.max(0, state.unreadCount + delta) })),
 }));

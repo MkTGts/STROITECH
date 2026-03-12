@@ -140,17 +140,42 @@ export default function HomePage() {
 
       <section className="bg-primary py-12 text-white md:py-16">
         <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="text-2xl font-bold md:text-3xl">Готовы начать строительство?</h2>
-          <p className="mt-3 text-blue-100">
-            Зарегистрируйтесь и получите доступ к тысячам строителей, поставщиков и объявлений.
-            Первое объявление — бесплатно!
-          </p>
-          <Link href="/auth/register">
-            <Button size="lg" variant="secondary" className="mt-6 gap-2 text-base">
-              Зарегистрироваться бесплатно
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <h2 className="text-2xl font-bold md:text-3xl">Готовы сделать следующий шаг?</h2>
+              <p className="mt-3 text-blue-100">
+                Создайте новое объявление или объект, чтобы привлечь подрядчиков и поставщиков под ваши задачи.
+              </p>
+              <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <Link href="/listings/create">
+                  <Button size="lg" variant="secondary" className="gap-2 text-base">
+                    Разместить объявление
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="/objects/create">
+                  <Button size="lg" variant="secondary" className="gap-2 text-base">
+                    Создать объект
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold md:text-3xl">Готовы начать строительство?</h2>
+              <p className="mt-3 text-blue-100">
+                Зарегистрируйтесь и получите доступ к тысячам строителей, поставщиков и объявлений.
+                Первое объявление — бесплатно!
+              </p>
+              <Link href="/auth/register">
+                <Button size="lg" variant="secondary" className="mt-6 gap-2 text-base">
+                  Зарегистрироваться бесплатно
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </section>
     </div>
