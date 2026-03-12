@@ -113,6 +113,22 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       },
     });
 
+    // создаём уведомление о новом сообщении
+    const sender = await prisma.user.findUnique({ where: { id: userId } });
+    const notif = await prisma.notification.create({
+      data: {
+        userId: recipientId,
+        type: "message",
+        content: sender
+          ? `Новое сообщение от ${sender.companyName || sender.name}`
+          : "Новое сообщение в чате",
+        metadata: { conversationId: conversation.id, messageId: message.id },
+      },
+    });
+
+    // realtime: пушим уведомление получателю
+    sendToUser(recipientId, { type: "notification", payload: notif });
+
     return reply.status(201).send({ success: true, data: conversation });
   });
 
@@ -192,6 +208,22 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         createdAt: message.createdAt,
       },
     });
+
+    // создаём уведомление о новом сообщении
+    const sender = await prisma.user.findUnique({ where: { id: userId } });
+    const notif = await prisma.notification.create({
+      data: {
+        userId: recipientId,
+        type: "message",
+        content: sender
+          ? `Новое сообщение от ${sender.companyName || sender.name}`
+          : "Новое сообщение в чате",
+        metadata: { conversationId: conversation.id, messageId: message.id },
+      },
+    });
+
+    // realtime: пушим уведомление получателю
+    sendToUser(recipientId, { type: "notification", payload: notif });
 
     return reply.status(201).send({ success: true, data: message });
   });

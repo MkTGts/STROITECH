@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store";
 import { useNotificationStore } from "@/lib/store";
+import { useWsEvent } from "@/lib/hooks";
 import { api } from "@/lib/api";
 
 const TYPE_ICONS: Record<string, typeof Bell> = {
@@ -38,6 +39,14 @@ export default function NotificationsPage() {
       })
       .finally(() => setLoading(false));
   }, [isAuthenticated, setUnreadCount]);
+
+  // realtime: добавление новых уведомлений по WebSocket
+  useWsEvent("notification", (payload) => {
+    setNotifications((prev) => [payload, ...prev]);
+    if (!payload.isRead) {
+      adjustUnread(1);
+    }
+  });
 
   async function handleMarkAllRead() {
     await api("/notifications/read-all", { method: "PUT" });

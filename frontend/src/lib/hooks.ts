@@ -9,8 +9,7 @@ import { api } from "./api";
  * Initialize WebSocket connection when user is authenticated.
  */
 export function useWebSocket(): void {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
+  const isAuthenticated = useAuthStore((s: any) => s.isAuthenticated);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -22,31 +21,9 @@ export function useWebSocket(): void {
   // Глобальное обновление бейджа уведомлений по событиям чата
   useEffect(() => {
     if (!isAuthenticated) return;
-
-    async function refreshChatUnread(): Promise<void> {
-      try {
-        const res = await api<any>("/chat/conversations");
-        const total = (res.data as any[]).reduce(
-          (sum, conv) => sum + (conv.unreadCount || 0),
-          0,
-        );
-        setUnreadCount(total);
-      } catch {
-        // ignore
-      }
-    }
-
-    const unsubscribe = onWsMessage((msg) => {
-      if (msg.type === "new_message" || msg.type === "message_read") {
-        void refreshChatUnread();
-      }
-    });
-
-    // инициализируем счётчик при подключении
-    void refreshChatUnread();
-
-    return unsubscribe;
-  }, [isAuthenticated, setUnreadCount]);
+    // здесь больше не управляем счётчиком — он используется для центра уведомлений
+    // и обновляется через страницу уведомлений и события WebSocket "notification"
+  }, [isAuthenticated]);
 }
 
 /**

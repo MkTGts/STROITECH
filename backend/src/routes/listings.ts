@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId } from "../lib/auth";
+import { sendToUser } from "../ws/handler";
 
 const createListingSchema = z.object({
   categoryId: z.number().int().positive(),
@@ -99,6 +100,19 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
           category: true,
         },
       });
+
+      // создаём системное уведомление автору объявления
+      const notification = await prisma.notification.create({
+        data: {
+          userId,
+          type: "system",
+          content: "Ваше объявление успешно размещено.",
+          metadata: { listingId: listing.id },
+        },
+      });
+
+      // realtime: отправляем уведомление автору
+      sendToUser(userId, { type: "notification", payload: notification });
 
       return reply.status(201).send({ success: true, data: listing });
     },

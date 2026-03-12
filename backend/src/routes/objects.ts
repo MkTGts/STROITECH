@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId } from "../lib/auth";
+import { sendToUser } from "../ws/handler";
 
 const createObjectSchema = z.object({
   title: z.string().min(3).max(200),
@@ -159,12 +160,16 @@ async function _notifyExecutors(objectId: string, stages: any[]): Promise<void> 
 
   if (users.length === 0) return;
 
-  await prisma.notification.createMany({
-    data: users.map((u: { id: string }) => ({
-      userId: u.id,
-      type: "new_object" as const,
-      content: "Появился новый объект! Посмотрите и предложите свои услуги.",
-      metadata: { objectId },
-    })),
-  });
+  for (const u of users) {
+    const notification = await prisma.notification.create({
+      data: {
+        userId: u.id,
+        type: "new_object",
+        content: "Появился новый объект! Посмотрите и предложите свои услуги.",
+        metadata: { objectId },
+      },
+    });
+
+    sendToUser(u.id, { type: "notification", payload: notification });
+  }
 }
