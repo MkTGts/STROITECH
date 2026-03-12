@@ -22,6 +22,12 @@ const STAGE_LABELS: Record<string, string> = {
   furniture: "Мебель и интерьер",
 };
 
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  active: { label: "Активный", color: "bg-green-100 text-green-700" },
+  completed: { label: "Завершён", color: "bg-blue-100 text-blue-700" },
+  archived: { label: "Архив", color: "bg-gray-100 text-gray-700" },
+};
+
 const STATUS_ICONS: Record<string, typeof Check> = {
   completed: Check,
   in_progress: Clock,
@@ -68,7 +74,10 @@ export default function ObjectDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <h1 className="text-2xl font-bold">{object.title}</h1>
-          <Badge className="mt-2" variant="secondary">{object.status === "active" ? "Активный" : object.status}</Badge>
+          {(() => {
+            const status = STATUS_CONFIG[object.status] || STATUS_CONFIG.active;
+            return <Badge className={`mt-2 ${status.color}`}>{status.label}</Badge>;
+          })()}
 
           {object.description && (
             <p className="mt-4 text-muted-foreground">{object.description}</p>
