@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId } from "../lib/auth";
+import { sendToUser } from "../ws/handler";
 
 const startConversationSchema = z.object({
   participantId: z.string().uuid(),
@@ -85,7 +86,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    await prisma.message.create({
+    const message = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         senderId: userId,
@@ -96,6 +97,20 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: { lastMessageAt: new Date() },
+    });
+
+    // realtime: уведомляем собеседника о новом сообщении
+    const recipientId = conversation.participant1Id === userId ? conversation.participant2Id : conversation.participant1Id;
+    sendToUser(recipientId, {
+      type: "new_message",
+      payload: {
+        conversationId: conversation.id,
+        id: message.id,
+        senderId: message.senderId,
+        content: message.content,
+        isRead: message.isRead,
+        createdAt: message.createdAt,
+      },
     });
 
     return reply.status(201).send({ success: true, data: conversation });
@@ -162,6 +177,20 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     await prisma.conversation.update({
       where: { id },
       data: { lastMessageAt: new Date() },
+    });
+
+    // realtime: уведомляем собеседника о новом сообщении
+    const recipientId = conversation.participant1Id === userId ? conversation.participant2Id : conversation.participant1Id;
+    sendToUser(recipientId, {
+      type: "new_message",
+      payload: {
+        conversationId: conversation.id,
+        id: message.id,
+        senderId: message.senderId,
+        content: message.content,
+        isRead: message.isRead,
+        createdAt: message.createdAt,
+      },
     });
 
     return reply.status(201).send({ success: true, data: message });
