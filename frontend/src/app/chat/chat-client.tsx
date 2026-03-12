@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Send, ArrowLeft, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Check, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -87,6 +87,18 @@ export function ChatPageClient() {
     void loadConversations();
   });
 
+  useWsEvent("message_read", (payload) => {
+    // если собеседник прочитал сообщения в текущем диалоге — отмечаем их как прочитанные
+    if (payload.conversationId === activeConvId && user) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.senderId === user.id ? { ...m, isRead: true } : m,
+        ),
+      );
+      void loadConversations();
+    }
+  });
+
   async function loadConversations(): Promise<void> {
     try {
       const res = await api<any>("/chat/conversations");
@@ -104,6 +116,8 @@ export function ChatPageClient() {
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         ),
       );
+      // после открытия диалога все входящие сообщения для текущего пользователя считаем прочитанными
+      void loadConversations();
     } catch {
       // ignore
     }
@@ -295,19 +309,29 @@ export function ChatPageClient() {
                       )}
                     >
                       <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                      <p
-                        className={cn(
-                          "mt-1 text-xs",
-                          msg.senderId === user?.id
-                            ? "text-primary-foreground/70"
-                            : "text-muted-foreground",
+                      <div className="mt-1 flex items-center justify-end gap-1 text-xs">
+                        <span
+                          className={cn(
+                            msg.senderId === user?.id
+                              ? "text-primary-foreground/70"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {new Date(msg.createdAt).toLocaleTimeString("ru-RU", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        {msg.senderId === user?.id && (
+                          <span className="inline-flex items-center gap-0.5">
+                            {msg.isRead ? (
+                              <CheckCheck className="h-3 w-3 text-primary-foreground/80" />
+                            ) : (
+                              <Check className="h-3 w-3 text-primary-foreground/80" />
+                            )}
+                          </span>
                         )}
-                      >
-                        {new Date(msg.createdAt).toLocaleTimeString("ru-RU", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      </div>
                     </div>
                   </div>
                 ))}
