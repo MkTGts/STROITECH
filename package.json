@@ -17,7 +17,7 @@
     "build:backend": "npm run build --workspace=backend",
     "start:frontend": "npm run start --workspace=frontend",
     "start:backend": "npm run start --workspace=backend",
-    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start": "concurrently \"BACKEND_PORT=4000 npm run start:backend\" \"PORT=3000 npm run start:frontend\"",
     "db:migrate:deploy": "npm run db:migrate:deploy --workspace=backend",
     "db:setup": "npm run db:migrate:deploy --workspace=backend && npm run db:seed --workspace=backend",
     "db:migrate": "npm run db:migrate --workspace=backend",
