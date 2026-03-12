@@ -29,7 +29,6 @@ export function Footer() {
             <h4 className="mb-3 font-semibold">Компания</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/about" className="hover:text-primary">О нас</Link></li>
-              <li><Link href="/subscription" className="hover:text-primary">Тарифы</Link></li>
               <li><Link href="/contacts" className="hover:text-primary">Контакты</Link></li>
             </ul>
           </div>

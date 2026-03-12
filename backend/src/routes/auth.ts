@@ -43,7 +43,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       },
     });
 
-    await _createFreeSubscription(user.id);
+    await _createDefaultSubscription(user.id);
     const tokens = generateTokens(app, { userId: user.id, role: user.role });
 
     return reply.status(201).send({
@@ -93,14 +93,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   });
 }
 
-async function _createFreeSubscription(userId: string): Promise<void> {
+async function _createDefaultSubscription(userId: string): Promise<void> {
   const expiresAt = new Date();
-  expiresAt.setMonth(expiresAt.getMonth() + 1);
+  // временно: всем пользователям выдаём premium по умолчанию
+  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
 
   await prisma.subscription.create({
     data: {
       userId,
-      plan: "free",
+      plan: "premium",
       status: "active",
       expiresAt,
       autoRenew: false,

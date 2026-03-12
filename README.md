@@ -77,6 +77,22 @@
 
 Инициализация Prisma‑клиента находится в `backend/src/lib/prisma.ts`.
 
+## Тестовые пользователи (seed)
+
+При запуске контейнера `docker-entrypoint.sh` пытается выполнить seed (`npm run db:seed`). Seed-скрипт находится в `backend/prisma/seed.ts` и (помимо категорий) создаёт демо‑пользователей, если их ещё нет.
+
+- **Пароль для всех демо‑аккаунтов**: `demo123`
+- **Аккаунты**:
+  - `supplier@demo.ru` (роль `supplier`)
+  - `builder@demo.ru` (роль `builder`)
+  - `equipment@demo.ru` (роль `equipment`)
+  - `client@demo.ru` (роль `client`)
+
+Если демо‑пользователи не появились:
+
+- убедитесь, что seed выполнялся без ошибок в логах запуска
+- запустите seed повторно командой `npm run db:seed` (в корне репозитория или в workspace `backend`)
+
 ### Миграции в продакшене (Timeweb)
 
 В контейнере миграции запускаются автоматически в `docker-entrypoint.sh`:

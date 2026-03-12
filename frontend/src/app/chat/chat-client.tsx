@@ -63,12 +63,24 @@ export function ChatPageClient() {
   }, [activeConvId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollMessagesToBottom();
   }, [messages]);
+
+  function scrollMessagesToBottom(): void {
+    const marker = messagesEndRef.current;
+    if (!marker) return;
+    const viewport = marker.closest<HTMLElement>("[data-slot=\"scroll-area-viewport\"]");
+    if (!viewport) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+  }
 
   useWsEvent("new_message", (payload) => {
     if (payload.conversationId === activeConvId) {
-      setMessages((prev) => [...prev, payload]);
+      setMessages((prev) =>
+        [...prev, payload as MessageItem].slice().sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+      );
       sendWsMessage("message_read", {
         conversationId: activeConvId,
         recipientId: payload.senderId,
@@ -89,7 +101,11 @@ export function ChatPageClient() {
   async function loadMessages(convId: string): Promise<void> {
     try {
       const res = await api<any>(`/chat/conversations/${convId}/messages`);
-      setMessages(res.data.items);
+      setMessages(
+        (res.data.items as MessageItem[]).slice().sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+      );
     } catch {
       // ignore
     }
@@ -130,7 +146,11 @@ export function ChatPageClient() {
         method: "POST",
         body: JSON.stringify({ content: newMessage }),
       });
-      setMessages((prev) => [...prev, res.data]);
+      setMessages((prev) =>
+        [...prev, res.data as MessageItem].slice().sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+      );
       setNewMessage("");
       void loadConversations();
     } catch {

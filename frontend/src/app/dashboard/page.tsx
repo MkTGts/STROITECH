@@ -195,9 +195,6 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm capitalize text-muted-foreground">
                 {subscription ? `${subscription.plan} — ${subscription.status === "active" ? "Активна" : "Истекла"}` : "Загрузка..."}
               </p>
-              <Link href="/subscription">
-                <Button variant="outline" size="sm" className="mt-3 w-full">Управление подпиской</Button>
-              </Link>
             </CardContent>
           </Card>
 
