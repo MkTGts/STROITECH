@@ -20,6 +20,8 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
+  const adjustUnread = useNotificationStore((s) => s.adjustUnread);
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +47,19 @@ export default function NotificationsPage() {
 
   async function handleMarkRead(id: string) {
     await api(`/notifications/${id}/read`, { method: "PUT" });
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    let marked = false;
+    setNotifications((prev) =>
+      prev.map((n) => {
+        if (n.id === id && !n.isRead) {
+          marked = true;
+          return { ...n, isRead: true };
+        }
+        return n;
+      }),
+    );
+    if (marked) {
+      adjustUnread(-1);
+    }
   }
 
   if (!isAuthenticated) return null;
@@ -54,7 +68,12 @@ export default function NotificationsPage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Уведомления</h1>
-        <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleMarkAllRead}
+          disabled={loading || unreadCount === 0}
+        >
           <Check className="mr-1 h-4 w-4" /> Прочитать все
         </Button>
       </div>
