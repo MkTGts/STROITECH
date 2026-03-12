@@ -192,7 +192,7 @@ export function ChatPageClient() {
   const isNewChat = searchParams.get("to") && !activeConvId;
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-7xl w-full overflow-hidden">
+    <div className="mx-auto flex max-w-7xl w-full flex-1 overflow-hidden">
       <div
         className={cn(
           "w-full border-r md:w-80 md:block",
