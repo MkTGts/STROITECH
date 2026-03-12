@@ -118,6 +118,15 @@ export function ChatPageClient() {
       );
       // после открытия диалога все входящие сообщения для текущего пользователя считаем прочитанными
       void loadConversations();
+
+      // уведомляем собеседника, что его сообщения в этом диалоге прочитаны
+      const conv = conversations.find((c) => c.id === convId);
+      if (conv && user) {
+        sendWsMessage("message_read", {
+          conversationId: convId,
+          recipientId: conv.participant.id,
+        });
+      }
     } catch {
       // ignore
     }
