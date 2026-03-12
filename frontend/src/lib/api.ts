@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const API_URL = normalizeApiBaseUrl(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000");
 
 type FetchOptions = RequestInit & {
   params?: Record<string, string | number | undefined>;
@@ -80,6 +80,11 @@ export class ApiError extends Error {
 function _getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("accessToken");
+}
+
+function normalizeApiBaseUrl(input: string): string {
+  const trimmed = input.replace(/\/+$/, "");
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 
 async function _tryRefreshToken(): Promise<string | null> {

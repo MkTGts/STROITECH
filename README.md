@@ -1,135 +1,109 @@
 # Объекты.online
 
-Онлайн-сервис для строительства. Доска объявлений с умным чатом и встроенным сервисом по управлению объектами.
+Онлайн‑сервис для строительства: доска объявлений, умный чат и управление строительными объектами.
 
-## Стек технологий
+Разворачивается на **Timeweb App Platform** как **одно Docker‑приложение** (см. `Dockerfile`). Другие варианты деплоя в этом репозитории не поддерживаются и в инструкции не описываются.
 
-- **Frontend**: Next.js 14 (App Router, TypeScript), Tailwind CSS, shadcn/ui — деплой на Vercel
-- **Backend**: Node.js + Fastify (TypeScript), Prisma ORM — деплой на Railway
-- **Database**: PostgreSQL — Railway
+## Что внутри
 
-## Быстрый старт
+- **Frontend**: Next.js (TypeScript)
+- **Backend**: Node.js + Fastify (TypeScript)
+- **База данных**: PostgreSQL
+- **ORM/миграции**: Prisma
 
-### 1. Установка зависимостей
+Архитектура в контейнере:
 
-```bash
-npm install
-```
+- Next.js слушает **порт 3000** (это единственный порт, который проксирует App Platform)
+- Fastify слушает **порт 4000** *внутри контейнера* (используется фронтом через тот же домен, проксирование делается внутри приложения)
 
-### 2. Запуск PostgreSQL
+## Деплой на Timeweb App Platform (Dockerfile)
 
-```bash
-docker compose up -d
-```
+### Как запускается контейнер
 
-### 3. Настройка переменных окружения
+`Dockerfile` собирает монорепозиторий, а в рантайме запускает `docker-entrypoint.sh`, который:
 
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.local.example frontend/.env.local
-```
+1) Применяет миграции Prisma  
+2) Пытается выполнить seed (ошибка seed **не** валит запуск)  
+3) Стартует backend и frontend одной командой
 
-### 4. Миграции и seed
+Важно: при первом запуске приложение ожидает, что PostgreSQL уже доступен по `DATABASE_URL`.
 
-```bash
-npm run db:generate
-npm run db:migrate
-npm run db:seed
-```
+### Настройки приложения в панели Timeweb
 
-### 5. Запуск в dev-режиме
-
-```bash
-npm run dev
-```
-
-- Frontend: http://localhost:3000
-- Backend: http://localhost:4000
-- API docs: http://localhost:4000/api/health
-
-### Демо-аккаунты
-
-| Email | Пароль | Роль |
-|---|---|---|
-| supplier@demo.ru | demo123 | Поставщик |
-| builder@demo.ru | demo123 | Строитель |
-| equipment@demo.ru | demo123 | Техника |
-| client@demo.ru | demo123 | Заказчик |
-
-## Скрипты
-
-| Команда | Описание |
-|---|---|
-| `npm run dev` | Запуск frontend + backend |
-| `npm run build` | Сборка проекта |
-| `npm run db:migrate` | Миграции БД |
-| `npm run db:seed` | Заполнение БД тестовыми данными |
-| `npm run db:studio` | Prisma Studio (GUI для БД) |
-
-## Деплой
-
-### Timeweb 1 App Platform (Docker)
-
-Для деплоя монорепозитория через `Dockerfile` на Timeweb 1 App Platform нужно создать приложение с типом **Docker (свой образ)** и указать переменные окружения.
-
-#### Обязательные переменные окружения
-
-- **PORT**
-  - **Значение**: `3000`
-  - **Описание**: Порт, на котором слушает Next.js (frontend). App Platform будет проксировать HTTP‑трафик на этот порт.
-
-- **BACKEND_PORT**
-  - **Значение**: `4000`
-  - **Описание**: Порт, на котором слушает Fastify‑backend внутри контейнера.
-
-- **DATABASE_URL**
-  - **Значение (пример)**: `postgresql://<USER>:<PASSWORD>@<HOST>:<PORT>/<DB_NAME>?schema=public`
-  - **Описание**: Строка подключения Prisma к PostgreSQL. Берётся из настроек PostgreSQL на Timeweb.
-
-- **JWT_SECRET**
-  - **Значение**: длинная случайная строка, например сгенерированный ключ.
-  - **Описание**: Секрет для подписи JWT‑токенов на backend. Обязательно поменять на боевое значение.
-
-- **FRONTEND_URL**
-  - **Значение (пример)**: `https://<your-app>.timeweb.app`
-  - **Описание**: Публичный URL frontend‑части (Next.js), используется backend’ом для CORS/redirect’ов.
-
-- **BACKEND_URL**
-  - **Значение (пример)**: `https://<your-app>.timeweb.app`
-  - **Описание**: Базовый URL backend’а, который будет использоваться фронтом. В варианте с одним Docker‑приложением backend и frontend живут на одном домене, поэтому указываем тот же URL.
-
-- **NEXT_PUBLIC_API_URL**
-  - **Значение (пример)**: `https://<your-app>.timeweb.app/api`
-  - **Описание**: Публичный URL API для frontend (используется в `frontend/src/lib/api.ts`).
-
-- **NEXT_PUBLIC_WS_URL**
-  - **Значение (пример)**: `wss://<your-app>.timeweb.app/ws`
-  - **Описание**: Публичный WebSocket‑URL для frontend (используется в `frontend/src/lib/ws.ts`).
-
-- **HOST**
-  - **Значение**: `0.0.0.0`
-  - **Описание**: Хост, на котором backend слушает внутри контейнера. Уже заложен по умолчанию, но можно задать явно.
-
-- **LOG_LEVEL**
-  - **Значение (пример)**: `info`
-  - **Описание**: Уровень логирования backend (опционально, по умолчанию `info`).
-
-#### Настройки приложения на Timeweb
-
+- **Тип**: Dockerfile (сборка из репозитория/образа)
 - **HTTP порт**: `3000`
-- **Стартовая команда**: берётся из `Dockerfile` (`CMD ["./docker-entrypoint.sh"]`), отдельно указывать не нужно.
-- **Образ**: собранный и запушенный в Registry образ этого репозитория.
+- **Команда запуска**: не требуется (берётся из `Dockerfile`)
 
-### Vercel (Frontend)
+### Переменные окружения
 
-1. Подключить репозиторий к Vercel
-2. Root Directory: `frontend`
-3. Env: `NEXT_PUBLIC_API_URL` = URL бэкенда на Railway
+Минимально необходимые для продакшена:
 
-### Railway (Backend + DB)
+- **DATABASE_URL**: строка подключения к PostgreSQL для Prisma  
+  Пример: `postgresql://USER:PASSWORD@HOST:PORT/DB_NAME?schema=public`
+- **JWT_SECRET**: секрет для подписи JWT
+- **FRONTEND_URL**: публичный URL приложения (например, `https://<app>.timeweb.app`)
+- **BACKEND_URL**: базовый URL backend (в конфигурации “один домен” обычно совпадает с `FRONTEND_URL`)
 
-1. Создать PostgreSQL сервис
-2. Создать сервис из репозитория (Root: `backend`)
-3. Build: `npm run build && npx prisma migrate deploy`
-4. Start: `npm start`
-5. Env: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`
+Рекомендуемые/служебные:
+
+- **PORT**: порт backend внутри контейнера (по умолчанию `4000`, см. `backend/.env.example`)
+- **HOST**: `0.0.0.0`
+- **LOG_LEVEL**: например `info`
+
+Переменные для фронтенда (используются в браузере, поэтому с префиксом `NEXT_PUBLIC_`):
+
+- **NEXT_PUBLIC_API_URL**: публичный URL API, обычно `https://<app>.timeweb.app/api`
+- **NEXT_PUBLIC_WS_URL**: публичный URL WebSocket, обычно `wss://<app>.timeweb.app/ws`
+
+## Документация API (Swagger UI)
+
+После запуска приложения документация API доступна по пути:
+
+- `https://<ваш-домен-на-timeweb>/docs`
+
+Пример для вашего домена:
+
+- `https://mktgts-stroitech-8dee.twc1.net/docs`
+
+## Работа с базой данных
+
+### Технология и точка входа
+
+- **СУБД**: PostgreSQL
+- **ORM**: Prisma
+- **Схема Prisma**: `backend/prisma/schema.prisma`
+- **Подключение**: через переменную окружения `DATABASE_URL` (см. `datasource db`)
+
+Инициализация Prisma‑клиента находится в `backend/src/lib/prisma.ts`.
+
+### Миграции в продакшене (Timeweb)
+
+В контейнере миграции запускаются автоматически в `docker-entrypoint.sh`:
+
+- сначала `npm run db:migrate:deploy` (это `prisma migrate deploy`)
+- если команда не сработала, выполняется fallback `npm run db:migrate` (это `prisma migrate dev`)
+
+Рекомендация: для продакшена корректный режим — **`migrate deploy`** (он применяет уже созданные миграции и не пытается генерировать новые).
+
+### Seed (начальные данные)
+
+После миграций entrypoint пытается выполнить seed:
+
+- команда: `npm run db:seed`
+- реализация: `backend/prisma/seed.ts`
+- важное поведение: ошибка seed не прерывает запуск приложения (используется `|| true`)
+
+Если вам не нужен seed в продакшене — убедитесь, что seed‑скрипт идемпотентен (повторный запуск безопасен) или удалите/измените поведение в entrypoint под вашу политику.
+
+### Полезные команды (для обслуживания)
+
+В корне репозитория:
+
+- `npm run db:generate` — генерация Prisma Client
+- `npm run db:migrate:deploy` — применить миграции (прод‑режим)
+- `npm run db:seed` — выполнить seed
+- `npm run db:studio` — Prisma Studio (GUI), требует сетевой доступ к БД по `DATABASE_URL`
+
+### Локальная БД (опционально, для разработки)
+
+В репозитории есть `docker-compose.yml` с PostgreSQL (порт `5432`). Он **не используется** на Timeweb App Platform, но может быть полезен локально для разработки и тестов.
