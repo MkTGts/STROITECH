@@ -6,7 +6,6 @@ import { Send, ArrowLeft, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthStore } from "@/lib/store";
 import { useWsEvent } from "@/lib/hooks";
 import { sendWsMessage } from "@/lib/ws";
@@ -38,6 +37,7 @@ export function ChatPageClient() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/auth/login");
@@ -67,9 +67,7 @@ export function ChatPageClient() {
   }, [messages]);
 
   function scrollMessagesToBottom(): void {
-    const marker = messagesEndRef.current;
-    if (!marker) return;
-    const viewport = marker.closest<HTMLElement>("[data-slot=\"scroll-area-viewport\"]");
+    const viewport = messagesViewportRef.current;
     if (!viewport) return;
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
   }
@@ -202,7 +200,7 @@ export function ChatPageClient() {
         <div className="flex h-14 items-center border-b px-4">
           <h2 className="font-semibold">Диалоги</h2>
         </div>
-        <ScrollArea className="h-[calc(100%-3.5rem)]">
+        <div className="h-[calc(100%-3.5rem)] overflow-y-auto">
           {conversations.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
               Пока нет диалогов
@@ -245,7 +243,7 @@ export function ChatPageClient() {
               </button>
             ))
           )}
-        </ScrollArea>
+        </div>
       </div>
 
       <div
@@ -278,7 +276,7 @@ export function ChatPageClient() {
               {isNewChat && <p className="font-semibold">Новый диалог</p>}
             </div>
 
-            <ScrollArea className="flex-1 p-4">
+            <div ref={messagesViewportRef} className="flex-1 overflow-y-auto p-4">
               <div className="space-y-3">
                 {messages.map((msg) => (
                   <div
@@ -315,7 +313,7 @@ export function ChatPageClient() {
                 ))}
                 <div ref={messagesEndRef} />
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="border-t p-4">
               <form
