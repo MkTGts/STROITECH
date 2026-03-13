@@ -26,7 +26,7 @@ const NAV_ITEMS = [
   { href: "/listings", label: "Объявления", icon: LayoutGrid },
   { href: "/profiles", label: "Участники", icon: Users },
   { href: "/objects", label: "Объекты", icon: HardHat },
-  { href: "/chat", label: "Чат", icon: MessageCircle, auth: true },
+  { href: "/chat", label: "Чат", icon: MessageCircle },
 ];
 
 export function Header() {
@@ -45,10 +45,10 @@ export function Header() {
 
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_ITEMS.map((item) => {
-            if (item.auth && !isAuthenticated) return null;
+            const href = item.href === "/chat" && !isAuthenticated ? "/auth/login" : item.href;
             const isActive = pathname === item.href;
             return (
-              <Link key={item.href} href={item.href}>
+              <Link key={item.href} href={href}>
                 <Button
                   variant={isActive ? "secondary" : "ghost"}
                   size="sm"
@@ -109,11 +109,11 @@ export function Header() {
           <SheetContent side="right" className="w-72">
             <nav className="mt-8 flex flex-col gap-2">
               {NAV_ITEMS.map((item) => {
-                if (item.auth && !isAuthenticated) return null;
+                const href = item.href === "/chat" && !isAuthenticated ? "/auth/login" : item.href;
                 return (
                   <Link
                     key={item.href}
-                    href={item.href}
+                    href={href}
                     onClick={() => setMobileOpen(false)}
                   >
                     <Button
