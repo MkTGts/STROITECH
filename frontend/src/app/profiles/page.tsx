@@ -25,7 +25,6 @@ const TABS = [
   { value: "supplier", label: "Поставщики" },
   { value: "builder", label: "Строители" },
   { value: "equipment", label: "Техника" },
-  { value: "client", label: "Заказчики" },
 ];
 
 export default function ProfilesPage() {
