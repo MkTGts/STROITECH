@@ -6,6 +6,7 @@ import { getUserId } from "../lib/auth";
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().min(10).optional(),
+  region: z.string().min(2).optional(),
   companyName: z.string().optional(),
   description: z.string().optional(),
   avatarUrl: z.string().url().optional(),
@@ -40,6 +41,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         where,
         select: {
           id: true, name: true, companyName: true, role: true,
+          region: true,
           description: true, avatarUrl: true, isVerified: true, createdAt: true,
         },
         skip,

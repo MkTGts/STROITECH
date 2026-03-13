@@ -7,6 +7,7 @@ type User = {
   phone: string;
   role: string;
   name: string;
+  region: string | null;
   companyName: string | null;
   description: string | null;
   avatarUrl: string | null;

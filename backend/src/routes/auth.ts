@@ -9,6 +9,7 @@ const registerSchema = z.object({
   password: z.string().min(6),
   role: z.enum(["supplier", "builder", "equipment", "client"]),
   name: z.string().min(2),
+  region: z.string().min(2),
   companyName: z.string().optional(),
   description: z.string().min(10),
 });
@@ -38,6 +39,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         passwordHash,
         role: body.role,
         name: body.name,
+        region: body.region,
         companyName: body.companyName || null,
         description: body.description,
       },

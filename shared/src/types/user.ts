@@ -11,6 +11,7 @@ export type User = {
   phone: string;
   role: UserRole;
   name: string;
+  region: string | null;
   companyName: string | null;
   description: string | null;
   avatarUrl: string | null;
@@ -37,6 +38,7 @@ export type RegisterPayload = {
   password: string;
   role: UserRole;
   name: string;
+  region: string;
   companyName?: string;
   description: string;
 };

@@ -113,6 +113,11 @@ export default function ProfilesPage() {
                       <Badge variant="secondary" className="mt-1">
                         {ROLE_LABELS[user.role] || user.role}
                       </Badge>
+                      {user.region && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Регион: {user.region}
+                        </p>
+                      )}
                       {user.description && (
                         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
                           {user.description}

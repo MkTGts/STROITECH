@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store";
 import { toast } from "sonner";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const ROLES = [
   { value: "supplier", label: "Поставщик", icon: Package, description: "Продаю стройматериалы" },
@@ -30,6 +32,7 @@ export default function RegisterPage() {
     password: "",
     role: "",
     name: "",
+    region: "",
     companyName: "",
     description: "",
   });
@@ -116,6 +119,23 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div>
+                <Label>Регион</Label>
+                <div className="mt-1">
+                  <Select value={form.region} onValueChange={(value) => updateField("region", value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Выберите регион России" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RUSSIAN_REGIONS.map((region) => (
+                        <SelectItem key={region} value={region}>
+                          {region}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -165,7 +185,7 @@ export default function RegisterPage() {
                 <Button type="button" variant="outline" onClick={() => setStep(1)} className="flex-1">
                   Назад
                 </Button>
-                <Button type="submit" className="flex-1" disabled={loading}>
+                <Button type="submit" className="flex-1" disabled={loading || !form.region}>
                   {loading ? "Регистрация..." : "Зарегистрироваться"}
                 </Button>
               </div>

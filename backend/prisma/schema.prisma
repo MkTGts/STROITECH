@@ -75,6 +75,7 @@ model User {
   passwordHash String   @map("password_hash")
   role         UserRole
   name         String
+  region       String?
   companyName  String?  @map("company_name")
   description  String?  @db.Text
   avatarUrl    String?  @map("avatar_url")

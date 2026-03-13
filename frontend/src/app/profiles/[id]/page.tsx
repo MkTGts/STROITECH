@@ -71,6 +71,11 @@ export default function ProfileDetailPage() {
                 <Badge variant="secondary">{ROLE_LABELS[profile.role]}</Badge>
                 {profile.isVerified && <Badge className="bg-green-500 text-white">Проверен</Badge>}
               </div>
+              {profile.region && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Регион: {profile.region}
+                </p>
+              )}
               {profile.companyName && (
                 <p className="mt-1 text-muted-foreground">{profile.name}</p>
               )}

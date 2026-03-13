@@ -22,9 +22,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",
@@ -39,7 +41,7 @@ export default function DashboardPage() {
   const [editMode, setEditMode] = useState(false);
   const [subscription, setSubscription] = useState<any>(null);
   const [managers, setManagers] = useState<any[]>([]);
-  const [form, setForm] = useState({ name: "", phone: "", companyName: "", description: "" });
+  const [form, setForm] = useState({ name: "", phone: "", region: "", companyName: "", description: "" });
   const [managerForm, setManagerForm] = useState({ name: "", phone: "", position: "" });
   const [saving, setSaving] = useState(false);
 
@@ -52,6 +54,7 @@ export default function DashboardPage() {
       setForm({
         name: user.name || "",
         phone: user.phone || "",
+        region: user.region || "",
         companyName: user.companyName || "",
         description: user.description || "",
       });
@@ -124,6 +127,24 @@ export default function DashboardPage() {
                     <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
                   </div>
                   <div>
+                    <Label>Регион</Label>
+                    <Select
+                      value={form.region}
+                      onValueChange={(value) => setForm((p) => ({ ...p, region: value }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Выберите регион России" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RUSSIAN_REGIONS.map((region) => (
+                          <SelectItem key={region} value={region}>
+                            {region}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <Label>Компания</Label>
                     <Input value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
                   </div>
@@ -145,6 +166,9 @@ export default function DashboardPage() {
                   <div>
                     <h3 className="text-lg font-semibold">{user.companyName || user.name}</h3>
                     <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+                    {user.region && (
+                      <p className="mt-1 text-xs text-muted-foreground">Регион: {user.region}</p>
+                    )}
                     <p className="mt-2 text-sm text-muted-foreground">{user.description}</p>
                     <p className="mt-1 text-sm text-muted-foreground">{user.email} · {user.phone}</p>
                   </div>
