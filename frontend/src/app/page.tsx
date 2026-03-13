@@ -75,7 +75,7 @@ export default function HomePage() {
                     <Button
                       size="lg"
                       variant="outline"
-                      className="gap-2 border-white/30 text-base text-white hover:bg-white/10"
+                      className="gap-2 border-white/30 bg-white/10 text-base text-white hover:bg-white/20"
                     >
                       Смотреть объявления
                     </Button>
