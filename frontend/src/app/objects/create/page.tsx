@@ -26,8 +26,6 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 const STAGES = [
-  { type: "realty", label: "Поиск недвижимости", icon: MapPin, description: "Участок, дом, коммерческая недвижимость" },
-  { type: "project", label: "Проект", icon: FileText, description: "Проектирование, документация, согласования" },
   { type: "foundation", label: "Фундамент", icon: Layers, description: "Устройство фундамента" },
   { type: "walls", label: "Стены и перекрытия", icon: Building2, description: "Кладка стен, монтаж перекрытий" },
   { type: "roof", label: "Кровля", icon: Building2, description: "Стропильная система, покрытие" },
