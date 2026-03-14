@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, X, Upload } from "lucide-react";
+import { ArrowLeft, X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,11 +17,15 @@ import { toast } from "sonner";
 
 type Category = { id: number; name: string; type: string; children?: Category[] };
 
-export default function CreateListingPage() {
+export default function EditListingPage() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const params = useParams();
+  const id = params.id as string;
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [listing, setListing] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -32,12 +36,32 @@ export default function CreateListingPage() {
   });
 
   useEffect(() => {
+    if (isLoading) return;
     if (!isAuthenticated) {
       router.push("/auth/login");
       return;
     }
-    api<any>("/categories").then((res) => setCategories(res.data));
-  }, [isAuthenticated, router]);
+    Promise.all([
+      api<any>("/categories").then((res) => setCategories(res.data)),
+      api<any>(`/listings/${id}`).then((res) => setListing(res.data)),
+    ]).catch(() => setListing(null)).finally(() => setLoading(false));
+  }, [id, isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    if (!listing) return;
+    if (user?.id !== listing.userId) {
+      router.replace(`/listings/${id}`);
+      return;
+    }
+    setForm({
+      title: listing.title ?? "",
+      description: listing.description ?? "",
+      categoryId: String(listing.categoryId ?? ""),
+      region: listing.region ?? "",
+      price: listing.price != null ? String(listing.price) : "",
+      photos: Array.isArray(listing.photos) ? listing.photos : [],
+    });
+  }, [listing, id, user?.id, router]);
 
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -46,7 +70,6 @@ export default function CreateListingPage() {
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files) return;
-
     for (const file of Array.from(files)) {
       try {
         const result = await uploadFile(file);
@@ -63,10 +86,10 @@ export default function CreateListingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     try {
-      await api("/listings", {
-        method: "POST",
+      await api(`/listings/${id}`, {
+        method: "PUT",
         body: JSON.stringify({
           title: form.title,
           description: form.description,
@@ -76,12 +99,12 @@ export default function CreateListingPage() {
           photos: form.photos,
         }),
       });
-      toast.success("Объявление создано!");
-      router.push("/listings");
+      toast.success("Объявление обновлено");
+      router.push(`/listings/${id}`);
     } catch (err: any) {
-      toast.error(err.message || "Ошибка создания объявления");
+      toast.error(err.message || "Ошибка сохранения");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
@@ -89,24 +112,38 @@ export default function CreateListingPage() {
     (cat.children || []).map((child) => ({ ...child, parentName: cat.name })),
   );
 
+  if (loading || !listing) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
+      </div>
+    );
+  }
+
+  if (user?.id !== listing.userId) {
+    return null;
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <Link href="/listings">
+      <Link href={`/listings/${id}`}>
         <Button variant="ghost" size="sm" className="mb-4 gap-2">
-          <ArrowLeft className="h-4 w-4" /> К объявлениям
+          <ArrowLeft className="h-4 w-4" /> К объявлению
         </Button>
       </Link>
 
       <Card>
         <CardHeader>
-          <CardTitle>Разместить объявление</CardTitle>
+          <CardTitle>Редактировать объявление</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label>Категория</Label>
               <Select value={form.categoryId} onValueChange={(v) => updateField("categoryId", v)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Выберите категорию" /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Выберите категорию" />
+                </SelectTrigger>
                 <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
                   {allSubcategories.map((cat) => (
                     <SelectItem key={cat.id} value={String(cat.id)}>
@@ -188,8 +225,8 @@ export default function CreateListingPage() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Публикация..." : "Опубликовать"}
+            <Button type="submit" className="w-full" disabled={saving}>
+              {saving ? "Сохранение..." : "Сохранить"}
             </Button>
           </form>
         </CardContent>

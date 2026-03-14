@@ -8,6 +8,7 @@ const createListingSchema = z.object({
   categoryId: z.number().int().positive(),
   title: z.string().min(3).max(200),
   description: z.string().min(10),
+  region: z.string().min(2).optional(),
   photos: z.array(z.string().url()).default([]),
   price: z.number().positive().optional(),
 });

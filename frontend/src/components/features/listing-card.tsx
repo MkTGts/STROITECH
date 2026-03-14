@@ -13,6 +13,7 @@ type ListingCardProps = {
     id: string;
     title: string;
     description: string;
+    region?: string | null;
     photos: string[];
     price: number | null;
     isPromoted: boolean;
@@ -66,6 +67,10 @@ export function ListingCard({ listing }: ListingCardProps) {
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
           {listing.description}
         </p>
+
+        {listing.region && (
+          <p className="mt-1 text-xs text-muted-foreground">Регион: {listing.region}</p>
+        )}
 
         {listing.price && (
           <p className="mt-2 text-lg font-bold text-primary">

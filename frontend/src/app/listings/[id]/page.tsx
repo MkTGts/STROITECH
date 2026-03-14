@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, MapPin, Clock, Star } from "lucide-react";
+import { ArrowLeft, MessageCircle, MapPin, Clock, Star, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ListingDetailPage() {
   const { id } = useParams();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { user, isAuthenticated } = useAuthStore();
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,11 +52,20 @@ export default function ListingDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <Link href="/listings">
-        <Button variant="ghost" size="sm" className="mb-4 gap-2">
-          <ArrowLeft className="h-4 w-4" /> К объявлениям
-        </Button>
-      </Link>
+      <div className="mb-4 flex items-center gap-2">
+        <Link href="/listings">
+          <Button variant="ghost" size="sm" className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> К объявлениям
+          </Button>
+        </Link>
+        {isAuthenticated && user?.id === listing.userId && (
+          <Link href={`/listings/${id}/edit`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Pencil className="h-4 w-4" /> Редактировать
+            </Button>
+          </Link>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -89,6 +98,11 @@ export default function ListingDetailPage() {
               {listing.category && <Badge variant="secondary">{listing.category.name}</Badge>}
             </div>
             <h1 className="mt-3 text-2xl font-bold">{listing.title}</h1>
+            {listing.region && (
+              <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" /> Регион: {listing.region}
+              </p>
+            )}
             {listing.price && (
               <p className="mt-2 text-2xl font-bold text-primary">{Number(listing.price).toLocaleString("ru-RU")} ₽</p>
             )}

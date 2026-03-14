@@ -122,17 +122,18 @@ model Category {
 }
 
 model Listing {
-  id         String        @id @default(uuid()) @db.Uuid
-  userId     String        @map("user_id") @db.Uuid
-  categoryId Int           @map("category_id")
-  title      String
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  categoryId  Int           @map("category_id")
+  title       String
   description String       @db.Text
-  photos     Json          @default("[]")
-  price      Decimal?      @db.Decimal(12, 2)
-  isPromoted Boolean       @default(false) @map("is_promoted")
-  status     ListingStatus @default(active)
-  createdAt  DateTime      @default(now()) @map("created_at")
-  updatedAt  DateTime      @updatedAt @map("updated_at")
+  region      String?
+  photos      Json          @default("[]")
+  price       Decimal?      @db.Decimal(12, 2)
+  isPromoted  Boolean       @default(false) @map("is_promoted")
+  status      ListingStatus @default(active)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])

@@ -10,6 +10,7 @@ export type Listing = {
   categoryId: number;
   title: string;
   description: string;
+  region: string | null;
   photos: string[];
   price: number | null;
   isPromoted: boolean;
@@ -33,6 +34,7 @@ export type CreateListingPayload = {
   categoryId: number;
   title: string;
   description: string;
+  region?: string;
   photos: string[];
   price?: number;
 };
