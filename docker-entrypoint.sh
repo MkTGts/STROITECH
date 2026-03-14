@@ -2,7 +2,7 @@
 set -e
 
 echo "Running database migrations..."
-npm run db:migrate:deploy --workspace=backend
+npx prisma migrate deploy --schema=backend/prisma/schema.prisma
 
 echo "Seeding database (if seed script exists)..."
 npm run db:seed || true
