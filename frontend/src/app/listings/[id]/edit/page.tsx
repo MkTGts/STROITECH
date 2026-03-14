@@ -26,6 +26,7 @@ export default function EditListingPage() {
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [formInitialized, setFormInitialized] = useState(false);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -41,6 +42,7 @@ export default function EditListingPage() {
       router.push("/auth/login");
       return;
     }
+    setFormInitialized(false);
     Promise.all([
       api<any>("/categories").then((res) => setCategories(res.data)),
       api<any>(`/listings/${id}`).then((res) => setListing(res.data)),
@@ -48,20 +50,24 @@ export default function EditListingPage() {
   }, [id, isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (!listing) return;
+    if (isLoading || !listing) return;
     if (user?.id !== listing.userId) {
       router.replace(`/listings/${id}`);
       return;
     }
+    if (formInitialized) return;
+    const categoryId = listing.categoryId ?? listing.category?.id;
+    const region = listing.region ?? "";
     setForm({
       title: listing.title ?? "",
       description: listing.description ?? "",
-      categoryId: String(listing.categoryId ?? ""),
-      region: listing.region ?? "",
+      categoryId: categoryId != null ? String(categoryId) : "",
+      region: typeof region === "string" ? region : "",
       price: listing.price != null ? String(listing.price) : "",
       photos: Array.isArray(listing.photos) ? listing.photos : [],
     });
-  }, [listing, id, user?.id, router]);
+    setFormInitialized(true);
+  }, [listing, id, user?.id, isLoading, formInitialized, router]);
 
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
