@@ -6,7 +6,7 @@ import { Search, Plus } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { ListingCard } from "@/components/features/listing-card";
 import { useAuthStore } from "@/lib/store";
 import { useDebounce } from "@/lib/hooks";
@@ -77,37 +77,53 @@ export function ListingsPageClient() {
         )}
       </div>
 
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Поиск объявлений..."
-            className="pl-10"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
-        </div>
-      </div>
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* Боковая панель: категории и место для будущих критериев отбора */}
+        <aside className="w-full shrink-0 lg:w-52" aria-label="Критерии отбора">
+          <nav className="rounded-lg border bg-card p-3" aria-label="Категории">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Категория
+            </h2>
+            <ul className="space-y-0.5">
+              {TABS.map((tab) => (
+                <li key={tab.value}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.value);
+                      setPage(1);
+                    }}
+                    className={cn(
+                      "w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
+                      activeTab === tab.value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {/* Здесь можно добавить блоки: Регион, Цена и т.д. */}
+          </nav>
+        </aside>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => {
-          setActiveTab(v);
-          setPage(1);
-        }}
-        className="mb-6"
-      >
-        <TabsList>
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        <main className="min-w-0 flex-1">
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Поиск объявлений..."
+                className="pl-10"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          </div>
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -143,6 +159,8 @@ export function ListingsPageClient() {
           )}
         </>
       )}
+        </main>
+      </div>
     </div>
   );
 }
