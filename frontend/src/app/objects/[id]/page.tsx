@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle, MapPin, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,7 @@ const STATUS_ICONS: Record<string, typeof Check> = {
 
 export default function ObjectDetailPage() {
   const { id } = useParams();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { user, isAuthenticated } = useAuthStore();
   const [object, setObject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,11 +65,20 @@ export default function ObjectDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <Link href="/objects">
-        <Button variant="ghost" size="sm" className="mb-4 gap-2">
-          <ArrowLeft className="h-4 w-4" /> К объектам
-        </Button>
-      </Link>
+      <div className="mb-4 flex items-center gap-2">
+        <Link href="/objects">
+          <Button variant="ghost" size="sm" className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> К объектам
+          </Button>
+        </Link>
+        {isAuthenticated && user?.id === object.userId && (
+          <Link href={`/objects/${id}/edit`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Pencil className="h-4 w-4" /> Редактировать
+            </Button>
+          </Link>
+        )}
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -78,6 +87,12 @@ export default function ObjectDetailPage() {
             const status = STATUS_CONFIG[object.status] || STATUS_CONFIG.active;
             return <Badge className={`mt-2 ${status.color}`}>{status.label}</Badge>;
           })()}
+
+          {object.region && (
+            <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" /> Регион: {object.region}
+            </p>
+          )}
 
           {object.description && (
             <p className="mt-4 text-muted-foreground">{object.description}</p>

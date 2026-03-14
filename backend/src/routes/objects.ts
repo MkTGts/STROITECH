@@ -7,12 +7,19 @@ import { sendToUser } from "../ws/handler";
 const createObjectSchema = z.object({
   title: z.string().min(3).max(200),
   description: z.string().optional(),
+  region: z.string().min(2).optional(),
   stages: z.array(z.object({
     stageType: z.enum(["realty", "project", "foundation", "walls", "roof", "engineering", "finish", "furniture"]),
     materialsRequest: z.string().optional(),
     buildersRequest: z.string().optional(),
     equipmentRequest: z.string().optional(),
   })).min(1),
+});
+
+const updateObjectSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  description: z.string().optional().nullable(),
+  region: z.string().min(2).optional().nullable(),
 });
 
 /**
@@ -81,6 +88,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
           userId,
           title: body.title,
           description: body.description,
+          region: body.region ?? null,
           currentStage: body.stages[0].stageType,
           stages: {
             create: body.stages.map((s) => ({
@@ -97,6 +105,33 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       await _notifyExecutors(obj.id, body.stages);
 
       return reply.status(201).send({ success: true, data: obj });
+    },
+  );
+
+  app.put(
+    "/:id",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = getUserId(request);
+      const { id } = request.params as { id: string };
+      const body = updateObjectSchema.parse(request.body);
+
+      const existing = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, message: "Объект не найден" });
+      }
+
+      const data: Record<string, unknown> = {};
+      if (body.title !== undefined) data.title = body.title;
+      if (body.description !== undefined) data.description = body.description;
+      if (body.region !== undefined) data.region = body.region;
+
+      const obj = await prisma.constructionObject.update({
+        where: { id },
+        data,
+        include: { stages: true },
+      });
+      return { success: true, data: obj };
     },
   );
 

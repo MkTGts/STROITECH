@@ -36,6 +36,7 @@ export type ConstructionObject = {
   userId: string;
   title: string;
   description: string | null;
+  region: string | null;
   currentStage: StageType;
   status: ObjectStatus;
   isVisible: boolean;
@@ -52,10 +53,17 @@ export type ConstructionObject = {
 export type CreateObjectPayload = {
   title: string;
   description?: string;
+  region?: string;
   stages: {
     stageType: StageType;
     materialsRequest?: string;
     buildersRequest?: string;
     equipmentRequest?: string;
   }[];
+};
+
+export type UpdateObjectPayload = {
+  title?: string;
+  description?: string | null;
+  region?: string | null;
 };

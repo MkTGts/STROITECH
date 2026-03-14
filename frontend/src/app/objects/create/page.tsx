@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -49,6 +51,7 @@ export default function CreateObjectPage() {
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [region, setRegion] = useState("");
   const [stages, setStages] = useState<StageForm[]>(
     STAGES.map((s) => ({ stageType: s.type, materialsRequest: "", buildersRequest: "", equipmentRequest: "", enabled: false })),
   );
@@ -79,6 +82,7 @@ export default function CreateObjectPage() {
         body: JSON.stringify({
           title,
           description,
+          region: region || undefined,
           stages: enabledStages.map((s) => ({
             stageType: s.stageType,
             materialsRequest: s.materialsRequest || undefined,
@@ -134,6 +138,19 @@ export default function CreateObjectPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
                 />
+              </div>
+              <div>
+                <Label>Регион</Label>
+                <Select value={region} onValueChange={setRegion}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Выберите регион России" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                    {RUSSIAN_REGIONS.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button
                 className="w-full"

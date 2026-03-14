@@ -150,6 +150,7 @@ model ConstructionObject {
   userId       String       @map("user_id") @db.Uuid
   title        String
   description  String?      @db.Text
+  region       String?
   currentStage StageType    @default(realty) @map("current_stage")
   status       ObjectStatus @default(active)
   isVisible    Boolean      @default(true) @map("is_visible")

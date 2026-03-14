@@ -109,6 +109,10 @@ export default function ObjectsPage() {
                       <Badge variant="outline">{STAGE_LABELS[obj.currentStage] || obj.currentStage}</Badge>
                     </div>
 
+                    {obj.region && (
+                      <p className="mt-1 text-xs text-muted-foreground">Регион: {obj.region}</p>
+                    )}
+
                     {obj.description && (
                       <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{obj.description}</p>
                     )}
