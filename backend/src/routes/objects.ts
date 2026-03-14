@@ -104,7 +104,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
         },
         orderBy: { createdAt: "desc" },
       }),
-      prisma.constructionObject.count({ where: draftWhere }),
+      prisma.constructionObject.count({ where: draftWhere ?? undefined }),
       prisma.constructionObject.count({ where: visibleWhere }),
     ]);
 
