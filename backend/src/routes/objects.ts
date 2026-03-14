@@ -34,6 +34,13 @@ const setStatusSchema = z.object({
   status: z.enum(["active", "completed"]),
 });
 
+const createStageSchema = z.object({
+  stageType: z.enum(["realty", "project", "foundation", "walls", "roof", "engineering", "finish", "furniture"]),
+  materialsRequest: z.string().optional(),
+  buildersRequest: z.string().optional(),
+  equipmentRequest: z.string().optional(),
+});
+
 /**
  * Construction object management routes with subscription check.
  */
@@ -212,6 +219,29 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  app.delete(
+    "/:id",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = getUserId(request);
+      const { id } = request.params as { id: string };
+
+      const existing = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, message: "Объект не найден" });
+      }
+      if (existing.status !== "draft") {
+        return reply.status(400).send({
+          success: false,
+          message: "Удалить можно только объект со статусом «Черновик»",
+        });
+      }
+
+      await prisma.constructionObject.delete({ where: { id } });
+      return reply.status(200).send({ success: true, message: "Объект удалён" });
+    },
+  );
+
   app.put(
     "/:id",
     { preHandler: [app.authenticate] },
@@ -274,6 +304,49 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  app.post(
+    "/:id/stages",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = getUserId(request);
+      const { id } = request.params as { id: string };
+      const body = createStageSchema.parse(request.body);
+
+      const obj = await prisma.constructionObject.findFirst({
+        where: { id, userId },
+        include: { stages: { select: { stageType: true } } },
+      });
+      if (!obj) {
+        return reply.status(404).send({ success: false, message: "Объект не найден" });
+      }
+      if (obj.status !== "draft" && obj.status !== "active") {
+        return reply.status(400).send({
+          success: false,
+          message: "Добавлять этапы можно только у объектов со статусом «Черновик» или «Активный»",
+        });
+      }
+      const hasStageType = obj.stages.some((s) => s.stageType === body.stageType);
+      if (hasStageType) {
+        return reply.status(400).send({
+          success: false,
+          message: "Этап с таким типом уже добавлен",
+        });
+      }
+
+      const stage = await prisma.objectStage.create({
+        data: {
+          objectId: id,
+          stageType: body.stageType,
+          materialsRequest: body.materialsRequest ?? null,
+          buildersRequest: body.buildersRequest ?? null,
+          equipmentRequest: body.equipmentRequest ?? null,
+        },
+      });
+
+      return reply.status(201).send({ success: true, data: stage });
+    },
+  );
+
   app.put(
     "/:id/stages/:stageId",
     { preHandler: [app.authenticate] },
@@ -287,6 +360,12 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       });
       if (!obj) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
+      }
+      if (obj.status === "completed") {
+        return reply.status(400).send({
+          success: false,
+          message: "Редактировать этапы завершённого объекта нельзя",
+        });
       }
       const stageBelongsToObject = obj.stages.some((s) => s.id === stageId);
       if (!stageBelongsToObject) {

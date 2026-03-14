@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle, MapPin, Pencil, Save, X, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle, MapPin, Pencil, Save, X, CheckCircle2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,7 @@ const STAGE_STATUS_OPTIONS = [
 
 export default function ObjectDetailPage() {
   const { id } = useParams();
+  const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
   const [object, setObject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,16 @@ export default function ObjectDetailPage() {
   const [savingStageId, setSavingStageId] = useState<string | null>(null);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [addStageDialogOpen, setAddStageDialogOpen] = useState(false);
+  const [addStageForm, setAddStageForm] = useState({
+    stageType: "",
+    materialsRequest: "",
+    buildersRequest: "",
+    equipmentRequest: "",
+  });
+  const [addingStage, setAddingStage] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchObject = () =>
     api<any>(`/objects/${id}`)
@@ -134,6 +145,60 @@ export default function ObjectDetailPage() {
     }
   }
 
+  const canAddStage = isOwner && (object?.status === "draft" || object?.status === "active");
+  const existingStageTypes = object?.stages?.map((s: any) => s.stageType) ?? [];
+  const availableStageTypes = Object.keys(STAGE_LABELS).filter((t) => !existingStageTypes.includes(t));
+
+  function openAddStageDialog() {
+    setAddStageForm({
+      stageType: availableStageTypes[0] ?? "",
+      materialsRequest: "",
+      buildersRequest: "",
+      equipmentRequest: "",
+    });
+    setAddStageDialogOpen(true);
+  }
+
+  async function handleAddStage() {
+    if (!addStageForm.stageType) {
+      toast.error("Выберите тип этапа");
+      return;
+    }
+    setAddingStage(true);
+    try {
+      await api(`/objects/${id}/stages`, {
+        method: "POST",
+        body: JSON.stringify({
+          stageType: addStageForm.stageType,
+          materialsRequest: addStageForm.materialsRequest || undefined,
+          buildersRequest: addStageForm.buildersRequest || undefined,
+          equipmentRequest: addStageForm.equipmentRequest || undefined,
+        }),
+      });
+      toast.success("Этап добавлен");
+      setAddStageDialogOpen(false);
+      fetchObject();
+    } catch (err: any) {
+      toast.error(err.message || "Ошибка добавления этапа");
+    } finally {
+      setAddingStage(false);
+    }
+  }
+
+  async function handleDeleteObject() {
+    setDeleting(true);
+    try {
+      await api(`/objects/${id}`, { method: "DELETE" });
+      toast.success("Объект удалён");
+      setDeleteDialogOpen(false);
+      router.push("/objects");
+    } catch (err: any) {
+      toast.error(err.message || "Ошибка удаления");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -179,6 +244,11 @@ export default function ObjectDetailPage() {
                 </Button>
               </Link>
             )}
+            {object.status === "draft" && (
+              <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)}>
+                <Trash2 className="h-4 w-4" /> Удалить объект
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -203,6 +273,16 @@ export default function ObjectDetailPage() {
 
           <h2 className="mb-4 mt-8 text-xl font-semibold">Этапы строительства</h2>
           <div className="space-y-3">
+            {canAddStage && availableStageTypes.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-dashed"
+                onClick={openAddStageDialog}
+              >
+                <Plus className="h-4 w-4" /> Добавить этап
+              </Button>
+            )}
             {object.stages?.map((stage: any) => {
               const Icon = STATUS_ICONS[stage.status] || AlertCircle;
               const isEditing = editingStageId === stage.id;
@@ -229,7 +309,7 @@ export default function ObjectDetailPage() {
                           )}
                         </div>
                       </div>
-                      {isOwner && !isEditing && (
+                      {isOwner && object.status !== "completed" && !isEditing && (
                         <Button variant="ghost" size="sm" className="gap-1 shrink-0" onClick={() => startEditStage(stage)}>
                           <Pencil className="h-3.5 w-3.5" /> Редактировать этап
                         </Button>
@@ -354,6 +434,94 @@ export default function ObjectDetailPage() {
             </Button>
             <Button onClick={handleCompleteObject} disabled={completing}>
               {completing ? "Сохранение..." : "Да, завершить объект"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle>Удалить объект?</DialogTitle>
+            <DialogDescription>
+              Объект «{object.title}» и все его этапы будут удалены безвозвратно. Это действие нельзя отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton={false}>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+              Отмена
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteObject} disabled={deleting}>
+              {deleting ? "Удаление..." : "Удалить объект"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addStageDialogOpen} onOpenChange={setAddStageDialogOpen}>
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle>Добавить этап строительства</DialogTitle>
+            <DialogDescription>
+              Выберите тип этапа и при необходимости укажите запросы на материалы, строителей или технику.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div>
+              <Label className="text-sm">Тип этапа</Label>
+              <Select
+                value={addStageForm.stageType}
+                onValueChange={(v) => setAddStageForm((p) => ({ ...p, stageType: v }))}
+              >
+                <SelectTrigger className="mt-1 w-full">
+                  <SelectValue placeholder="Выберите этап" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableStageTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {STAGE_LABELS[type] ?? type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Запрос на материалы (опционально)</Label>
+              <Textarea
+                placeholder="Какие материалы нужны?"
+                value={addStageForm.materialsRequest}
+                onChange={(e) => setAddStageForm((p) => ({ ...p, materialsRequest: e.target.value }))}
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Запрос на строителей (опционально)</Label>
+              <Textarea
+                placeholder="Какие работы нужно выполнить?"
+                value={addStageForm.buildersRequest}
+                onChange={(e) => setAddStageForm((p) => ({ ...p, buildersRequest: e.target.value }))}
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Запрос на технику (опционально)</Label>
+              <Textarea
+                placeholder="Какая техника нужна?"
+                value={addStageForm.equipmentRequest}
+                onChange={(e) => setAddStageForm((p) => ({ ...p, equipmentRequest: e.target.value }))}
+                rows={2}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter showCloseButton={false}>
+            <Button variant="outline" onClick={() => setAddStageDialogOpen(false)} disabled={addingStage}>
+              Отмена
+            </Button>
+            <Button onClick={handleAddStage} disabled={addingStage || !addStageForm.stageType}>
+              {addingStage ? "Добавление..." : "Добавить этап"}
             </Button>
           </DialogFooter>
         </DialogContent>

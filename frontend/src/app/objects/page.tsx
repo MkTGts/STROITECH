@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const STAGE_LABELS: Record<string, string> = {
   realty: "Недвижимость",
@@ -29,11 +30,20 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   archived: { label: "Архив", color: "bg-gray-100 text-gray-700", icon: AlertCircle },
 };
 
+const STATUS_TABS = [
+  { value: "all", label: "Все" },
+  { value: "draft", label: "Черновики" },
+  { value: "active", label: "Активные" },
+  { value: "completed", label: "Завершённые" },
+  { value: "archived", label: "Архив" },
+];
+
 export default function ObjectsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
   const [objects, setObjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -47,12 +57,14 @@ export default function ObjectsPage() {
   const fetchObjects = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api<any>("/objects", { params: { page, limit: 12 } });
+      const params: Record<string, string | number> = { page, limit: 12 };
+      if (activeTab !== "all") params.status = activeTab;
+      const res = await api<any>("/objects", { params });
       setObjects(res.data.items);
       setTotalPages(res.data.totalPages);
     } catch { /* ignore */ }
     setLoading(false);
-  }, [page]);
+  }, [page, activeTab]);
 
   useEffect(() => {
     if (isAuthenticated) fetchObjects();
@@ -76,6 +88,39 @@ export default function ObjectsPage() {
         </Link>
       </div>
 
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <aside className="w-full shrink-0 lg:w-52" aria-label="Фильтр по статусу">
+          <nav className="rounded-lg border bg-card p-3" aria-label="Статус">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Статус
+            </h2>
+            <ul className="space-y-0.5">
+              {STATUS_TABS.map((tab) => (
+                <li key={tab.value}>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab(tab.value); setPage(1); }}
+                    className={cn(
+                      "w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
+                      activeTab === tab.value
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    {tab.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {activeTab === "draft" && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Показаны только ваши черновики
+              </p>
+            )}
+          </nav>
+        </aside>
+
+        <main className="min-w-0 flex-1">
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -83,15 +128,22 @@ export default function ObjectsPage() {
           ))}
         </div>
       ) : objects.length === 0 ? (
-        <Card className="p-12 text-center">
+        <div className="rounded-xl border bg-card p-16 text-center">
           <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-3 text-lg text-muted-foreground">Пока нет объектов</p>
-          <Link href="/objects/create">
-            <Button className="mt-4 gap-2">
-              <Plus className="h-4 w-4" /> Создать первый объект
-            </Button>
-          </Link>
-        </Card>
+          <p className="mt-3 text-lg text-muted-foreground">
+            {activeTab === "all" ? "Пока нет объектов" : "Объекты не найдены"}
+          </p>
+          {activeTab !== "all" && (
+            <p className="mt-1 text-sm text-muted-foreground">Попробуйте изменить фильтр</p>
+          )}
+          {activeTab === "all" && (
+            <Link href="/objects/create">
+              <Button className="mt-4 gap-2">
+                <Plus className="h-4 w-4" /> Создать первый объект
+              </Button>
+            </Link>
+          )}
+        </div>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -175,6 +227,8 @@ export default function ObjectsPage() {
           )}
         </>
       )}
+        </main>
+      </div>
     </div>
   );
 }
