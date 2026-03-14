@@ -1,4 +1,4 @@
-export const RUSSIAN_REGIONS = [
+const REGIONS_RAW = [
   "Москва",
   "Санкт-Петербург",
   "Московская область",
@@ -80,4 +80,9 @@ export const RUSSIAN_REGIONS = [
   "Ненецкий автономный округ",
   "Ямало-Ненецкий автономный округ",
 ];
+
+/** Регионы России, по алфавиту */
+export const RUSSIAN_REGIONS = [...REGIONS_RAW].sort((a, b) =>
+  a.localeCompare(b, "ru")
+);
 

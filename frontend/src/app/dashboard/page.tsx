@@ -135,7 +135,7 @@ export default function DashboardPage() {
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Выберите регион России" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
                         {RUSSIAN_REGIONS.map((region) => (
                           <SelectItem key={region} value={region}>
                             {region}
