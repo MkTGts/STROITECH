@@ -23,6 +23,7 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
+  draft: { label: "Черновик", color: "bg-gray-100 text-gray-700", icon: AlertCircle },
   active: { label: "Активный", color: "bg-green-100 text-green-700", icon: Clock },
   completed: { label: "Завершён", color: "bg-blue-100 text-blue-700", icon: CheckCircle2 },
   archived: { label: "Архив", color: "bg-gray-100 text-gray-700", icon: AlertCircle },

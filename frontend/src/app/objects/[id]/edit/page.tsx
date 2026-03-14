@@ -79,6 +79,22 @@ export default function EditObjectPage() {
     }
   }
 
+  async function handlePublish() {
+    setSaving(true);
+    try {
+      await api(`/objects/${id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "active" }),
+      });
+      toast.success("Объект опубликован");
+      router.push(`/objects/${id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Ошибка");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading || !object) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
@@ -143,9 +159,16 @@ export default function EditObjectPage() {
               </Select>
             </div>
 
-            <Button type="submit" className="w-full" disabled={saving}>
-              {saving ? "Сохранение..." : "Сохранить"}
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button type="submit" className="w-full" disabled={saving}>
+                {saving ? "Сохранение..." : "Сохранить"}
+              </Button>
+              {object.status === "draft" && (
+                <Button type="button" variant="secondary" className="w-full" disabled={saving} onClick={handlePublish}>
+                  {saving ? "Публикация..." : "Опубликовать объект"}
+                </Button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle, MapPin, Pencil, Save, X } from "lucide-react";
+import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle, MapPin, Pencil, Save, X, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -27,6 +35,7 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  draft: { label: "Черновик", color: "bg-gray-100 text-gray-700" },
   active: { label: "Активный", color: "bg-green-100 text-green-700" },
   completed: { label: "Завершён", color: "bg-blue-100 text-blue-700" },
   archived: { label: "Архив", color: "bg-gray-100 text-gray-700" },
@@ -57,6 +66,8 @@ export default function ObjectDetailPage() {
     equipmentRequest: "",
   });
   const [savingStageId, setSavingStageId] = useState<string | null>(null);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   const fetchObject = () =>
     api<any>(`/objects/${id}`)
@@ -106,6 +117,23 @@ export default function ObjectDetailPage() {
     }
   }
 
+  async function handleCompleteObject() {
+    setCompleting(true);
+    try {
+      await api(`/objects/${id}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      toast.success("Объект завершён");
+      setCompleteDialogOpen(false);
+      fetchObject();
+    } catch (err: any) {
+      toast.error(err.message || "Ошибка");
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -131,11 +159,27 @@ export default function ObjectDetailPage() {
           </Button>
         </Link>
         {isAuthenticated && user?.id === object.userId && (
-          <Link href={`/objects/${id}/edit`}>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Pencil className="h-4 w-4" /> Редактировать
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {object.status === "draft" && (
+              <Link href={`/objects/${id}/edit`}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Pencil className="h-4 w-4" /> Продолжить создание
+                </Button>
+              </Link>
+            )}
+            {object.status === "active" && (
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setCompleteDialogOpen(true)}>
+                <CheckCircle2 className="h-4 w-4" /> Завершить объект
+              </Button>
+            )}
+            {object.status !== "completed" && (
+              <Link href={`/objects/${id}/edit`}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Pencil className="h-4 w-4" /> Редактировать
+                </Button>
+              </Link>
+            )}
+          </div>
         )}
       </div>
 
@@ -294,6 +338,26 @@ export default function ObjectDetailPage() {
           )}
         </div>
       </div>
+
+      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle>Завершить объект?</DialogTitle>
+            <DialogDescription>
+              После завершения объект получит статус «Завершён» и <strong>вернуть его обратно в активные будет нельзя</strong>.
+              Убедитесь, что все этапы отражены корректно.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton={false}>
+            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)} disabled={completing}>
+              Отмена
+            </Button>
+            <Button onClick={handleCompleteObject} disabled={completing}>
+              {completing ? "Сохранение..." : "Да, завершить объект"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -68,6 +68,32 @@ export default function CreateObjectPage() {
     setStages((prev) => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
   }
 
+  async function handleSaveDraft() {
+    if (!title.trim()) {
+      toast.error("Введите название объекта");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await api<{ data: { id: string } }>("/objects", {
+        method: "POST",
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description || undefined,
+          region: region || undefined,
+          stages: [],
+          isDraft: true,
+        }),
+      });
+      toast.success("Черновик сохранён. Продолжите создание в карточке объекта.");
+      router.push(`/objects/${res.data.id}/edit`);
+    } catch (err: any) {
+      toast.error(err.message || "Ошибка сохранения черновика");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit() {
     const enabledStages = stages.filter((s) => s.enabled);
     if (enabledStages.length === 0) {
@@ -152,13 +178,24 @@ export default function CreateObjectPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                className="w-full"
-                onClick={() => setStep(2)}
-                disabled={!title.trim()}
-              >
-                Далее — выбрать этапы <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full"
+                  onClick={() => setStep(2)}
+                  disabled={!title.trim()}
+                >
+                  Далее — выбрать этапы <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={!title.trim() || loading}
+                  onClick={handleSaveDraft}
+                >
+                  {loading ? "Сохранение..." : "Сохранить черновик"}
+                </Button>
+              </div>
             </div>
           )}
 

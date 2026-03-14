@@ -21,6 +21,7 @@ enum ListingStatus {
 }
 
 enum ObjectStatus {
+  draft
   active
   completed
   archived

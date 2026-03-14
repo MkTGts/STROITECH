@@ -1,4 +1,5 @@
 export enum ObjectStatus {
+  DRAFT = "draft",
   ACTIVE = "active",
   COMPLETED = "completed",
   ARCHIVED = "archived",

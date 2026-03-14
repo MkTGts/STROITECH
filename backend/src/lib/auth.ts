@@ -37,6 +37,15 @@ export function getUserId(request: FastifyRequest): string {
 }
 
 /**
+ * Extract user ID when auth is optional (e.g. public list that shows extra data for owner).
+ * Returns null if not authenticated.
+ */
+export function getOptionalUserId(request: FastifyRequest): string | null {
+  const user = request.user as { userId?: string } | undefined;
+  return user?.userId ?? null;
+}
+
+/**
  * Extract the authenticated user's role from the JWT-decoded request.
  */
 export function getUserRole(request: FastifyRequest): string {

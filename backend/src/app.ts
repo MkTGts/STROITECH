@@ -48,6 +48,14 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   });
 
+  app.decorate("optionalAuthenticate", async function (request: any) {
+    try {
+      await request.jwtVerify();
+    } catch {
+      // leave request.user undefined
+    }
+  });
+
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(userRoutes, { prefix: "/api/users" });
   await app.register(listingRoutes, { prefix: "/api/listings" });

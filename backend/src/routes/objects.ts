@@ -1,20 +1,28 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { getUserId } from "../lib/auth";
+import { getUserId, getOptionalUserId } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
 
-const createObjectSchema = z.object({
-  title: z.string().min(3).max(200),
-  description: z.string().optional(),
-  region: z.string().min(2).optional(),
-  stages: z.array(z.object({
-    stageType: z.enum(["realty", "project", "foundation", "walls", "roof", "engineering", "finish", "furniture"]),
-    materialsRequest: z.string().optional(),
-    buildersRequest: z.string().optional(),
-    equipmentRequest: z.string().optional(),
-  })).min(1),
+const stageItemSchema = z.object({
+  stageType: z.enum(["realty", "project", "foundation", "walls", "roof", "engineering", "finish", "furniture"]),
+  materialsRequest: z.string().optional(),
+  buildersRequest: z.string().optional(),
+  equipmentRequest: z.string().optional(),
 });
+
+const createObjectSchema = z
+  .object({
+    title: z.string().min(3).max(200),
+    description: z.string().optional(),
+    region: z.string().min(2).optional(),
+    stages: z.array(stageItemSchema).default([]),
+    isDraft: z.boolean().optional(),
+  })
+  .refine((d) => d.isDraft === true || d.stages.length >= 1, {
+    message: "Укажите хотя бы один этап для публикации объекта",
+    path: ["stages"],
+  });
 
 const updateObjectSchema = z.object({
   title: z.string().min(3).max(200).optional(),
@@ -22,38 +30,120 @@ const updateObjectSchema = z.object({
   region: z.string().min(2).optional().nullable(),
 });
 
+const setStatusSchema = z.object({
+  status: z.enum(["active", "completed"]),
+});
+
 /**
  * Construction object management routes with subscription check.
  */
 export async function objectRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/", async (request: FastifyRequest) => {
+  app.get("/", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest) => {
     const { page = "1", limit = "20", status } = request.query as Record<string, string>;
-    const skip = (Number(page) - 1) * Number(limit);
-    const where: any = { isVisible: true };
-    if (status) where.status = status;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const currentUserId = getOptionalUserId(request);
 
-    const [items, total] = await Promise.all([
+    const visibleWhere = { isVisible: true, status: { not: "draft" as const } };
+    const draftWhere = currentUserId ? { userId: currentUserId, status: "draft" as const } : null;
+
+    if (status) {
+      // Filter by status: then only apply status filter
+      const where: any = status === "draft" ? { userId: currentUserId || "", status: "draft" } : { ...visibleWhere, status };
+      if (status === "draft" && !currentUserId) {
+        return {
+          success: true,
+          data: { items: [], total: 0, page: pageNum, limit: limitNum, totalPages: 0 },
+        };
+      }
+      const [items, total] = await Promise.all([
+        prisma.constructionObject.findMany({
+          where,
+          include: {
+            user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
+            stages: true,
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (pageNum - 1) * limitNum,
+          take: limitNum,
+        }),
+        prisma.constructionObject.count({ where }),
+      ]);
+      return {
+        success: true,
+        data: { items, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+      };
+    }
+
+    if (!currentUserId) {
+      const [items, total] = await Promise.all([
+        prisma.constructionObject.findMany({
+          where: visibleWhere,
+          include: {
+            user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
+            stages: true,
+          },
+          orderBy: { createdAt: "desc" },
+          skip: (pageNum - 1) * limitNum,
+          take: limitNum,
+        }),
+        prisma.constructionObject.count({ where: visibleWhere }),
+      ]);
+      return {
+        success: true,
+        data: { items, total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+      };
+    }
+
+    const [drafts, draftCount, otherCount] = await Promise.all([
       prisma.constructionObject.findMany({
-        where,
+        where: draftWhere!,
         include: {
           user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
           stages: true,
         },
         orderBy: { createdAt: "desc" },
-        skip,
-        take: Number(limit),
       }),
-      prisma.constructionObject.count({ where }),
+      prisma.constructionObject.count({ where: draftWhere }),
+      prisma.constructionObject.count({ where: visibleWhere }),
     ]);
+
+    const total = draftCount + otherCount;
+    const totalPages = Math.ceil(total / limitNum);
+    const includeUser = { user: { select: { id: true, name: true, companyName: true, avatarUrl: true } }, stages: true };
+
+    let items: any[];
+    if (pageNum === 1) {
+      const restTake = Math.max(0, limitNum - drafts.length);
+      const rest = restTake > 0
+        ? await prisma.constructionObject.findMany({
+            where: visibleWhere,
+            include: includeUser,
+            orderBy: { createdAt: "desc" },
+            take: restTake,
+          })
+        : [];
+      items = [...drafts, ...rest];
+    } else {
+      const restSkip = (pageNum - 1) * limitNum - drafts.length;
+      items = await prisma.constructionObject.findMany({
+        where: visibleWhere,
+        include: includeUser,
+        orderBy: { createdAt: "desc" },
+        skip: Math.max(0, restSkip),
+        take: limitNum,
+      });
+    }
 
     return {
       success: true,
-      data: { items, total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) },
+      data: { items, total, page: pageNum, limit: limitNum, totalPages },
     };
   });
 
-  app.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/:id", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
+    const currentUserId = getOptionalUserId(request);
     const obj = await prisma.constructionObject.findUnique({
       where: { id },
       include: {
@@ -65,6 +155,9 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     if (!obj) {
       return reply.status(404).send({ success: false, message: "Объект не найден" });
     }
+    if (obj.status === "draft" && obj.userId !== currentUserId) {
+      return reply.status(404).send({ success: false, message: "Объект не найден" });
+    }
     return { success: true, data: obj };
   });
 
@@ -74,35 +167,46 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
 
-      const hasActiveSubscription = await _checkSubscription(userId);
-      if (!hasActiveSubscription) {
-        return reply.status(403).send({
-          success: false,
-          message: "Для создания объекта необходима активная подписка",
-        });
+      const body = createObjectSchema.parse(request.body);
+      const isDraft = body.isDraft === true;
+
+      if (!isDraft) {
+        const hasActiveSubscription = await _checkSubscription(userId);
+        if (!hasActiveSubscription) {
+          return reply.status(403).send({
+            success: false,
+            message: "Для публикации объекта необходима активная подписка",
+          });
+        }
       }
 
-      const body = createObjectSchema.parse(request.body);
+      const status = isDraft ? "draft" : "active";
+      const stages = body.stages.length > 0 ? body.stages : [{ stageType: "realty" as const, materialsRequest: undefined, buildersRequest: undefined, equipmentRequest: undefined }];
+      const currentStage = stages[0].stageType;
+
       const obj = await prisma.constructionObject.create({
         data: {
           userId,
           title: body.title,
-          description: body.description,
+          description: body.description ?? null,
           region: body.region ?? null,
-          currentStage: body.stages[0].stageType,
+          currentStage,
+          status,
           stages: {
-            create: body.stages.map((s) => ({
+            create: stages.map((s) => ({
               stageType: s.stageType,
-              materialsRequest: s.materialsRequest,
-              buildersRequest: s.buildersRequest,
-              equipmentRequest: s.equipmentRequest,
+              materialsRequest: s.materialsRequest ?? null,
+              buildersRequest: s.buildersRequest ?? null,
+              equipmentRequest: s.equipmentRequest ?? null,
             })),
           },
         },
         include: { stages: true },
       });
 
-      await _notifyExecutors(obj.id, body.stages);
+      if (!isDraft) {
+        await _notifyExecutors(obj.id, body.stages);
+      }
 
       return reply.status(201).send({ success: true, data: obj });
     },
@@ -120,6 +224,9 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
       }
+      if (existing.status === "completed") {
+        return reply.status(400).send({ success: false, message: "Завершённый объект нельзя редактировать" });
+      }
 
       const data: Record<string, unknown> = {};
       if (body.title !== undefined) data.title = body.title;
@@ -129,6 +236,38 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       const obj = await prisma.constructionObject.update({
         where: { id },
         data,
+        include: { stages: true },
+      });
+      return { success: true, data: obj };
+    },
+  );
+
+  app.put(
+    "/:id/status",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = getUserId(request);
+      const { id } = request.params as { id: string };
+      const body = setStatusSchema.parse(request.body);
+
+      const existing = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, message: "Объект не найден" });
+      }
+
+      if (body.status === "active") {
+        if (existing.status !== "draft") {
+          return reply.status(400).send({ success: false, message: "Опубликовать можно только черновик" });
+        }
+      } else if (body.status === "completed") {
+        if (existing.status !== "active") {
+          return reply.status(400).send({ success: false, message: "Завершить можно только активный объект" });
+        }
+      }
+
+      const obj = await prisma.constructionObject.update({
+        where: { id },
+        data: { status: body.status },
         include: { stages: true },
       });
       return { success: true, data: obj };
