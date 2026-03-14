@@ -179,7 +179,7 @@ CREATE INDEX "construction_objects_user_id_idx" ON "construction_objects"("user_
 CREATE INDEX "construction_objects_status_idx" ON "construction_objects"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "conversations_participant1_id_participant2_id_context_type_context_key" ON "conversations"("participant1_id", "participant2_id", "context_type", "context_id");
+CREATE UNIQUE INDEX "conversations_participant1_id_participant2_id_context_type_cont" ON "conversations"("participant1_id", "participant2_id", "context_type", "context_id");
 -- CreateIndex
 CREATE INDEX "conversations_participant1_id_idx" ON "conversations"("participant1_id");
 -- CreateIndex
