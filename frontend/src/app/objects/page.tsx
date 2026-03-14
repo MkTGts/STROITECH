@@ -137,13 +137,20 @@ export default function ObjectsPage() {
 
                     {obj.user && (
                       <div className="mt-4 flex items-center justify-between border-t pt-3">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          <Avatar className="h-7 w-7 shrink-0">
                             <AvatarFallback className="bg-primary/10 text-xs text-primary">
                               {obj.user.name.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm">{obj.user.companyName || obj.user.name}</span>
+                          <div className="min-w-0">
+                            {obj.user.companyName && (
+                              <p className="truncate text-sm font-medium">{obj.user.companyName}</p>
+                            )}
+                            <p className={`truncate text-sm ${obj.user.companyName ? "text-muted-foreground" : "font-medium"}`}>
+                              {obj.user.name}
+                            </p>
+                          </div>
                         </div>
                         <Link href={`/chat?to=${obj.user.id}&context=object&contextId=${obj.id}`}>
                           <Button size="icon" variant="ghost" className="h-8 w-8">

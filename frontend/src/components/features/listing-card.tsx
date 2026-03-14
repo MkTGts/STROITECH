@@ -87,7 +87,12 @@ export function ListingCard({ listing }: ListingCardProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="truncate text-xs font-medium">{listing.user.companyName || listing.user.name}</p>
+                {listing.user.companyName && (
+                  <p className="truncate text-xs font-medium">{listing.user.companyName}</p>
+                )}
+                <p className={listing.user.companyName ? "truncate text-xs text-muted-foreground" : "truncate text-xs font-medium"}>
+                  {listing.user.name}
+                </p>
                 <p className="text-xs text-muted-foreground">{ROLE_LABELS[listing.user.role] || listing.user.role}</p>
               </div>
             </Link>

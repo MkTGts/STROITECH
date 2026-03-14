@@ -142,9 +142,16 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       const userId = getUserId(request);
       const { id, stageId } = request.params as { id: string; stageId: string };
 
-      const obj = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      const obj = await prisma.constructionObject.findFirst({
+        where: { id, userId },
+        include: { stages: { select: { id: true } } },
+      });
       if (!obj) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
+      }
+      const stageBelongsToObject = obj.stages.some((s) => s.id === stageId);
+      if (!stageBelongsToObject) {
+        return reply.status(404).send({ success: false, message: "Этап не найден" });
       }
 
       const body = request.body as any;
@@ -152,9 +159,9 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
         where: { id: stageId },
         data: {
           status: body.status,
-          materialsRequest: body.materialsRequest,
-          buildersRequest: body.buildersRequest,
-          equipmentRequest: body.equipmentRequest,
+          materialsRequest: body.materialsRequest ?? null,
+          buildersRequest: body.buildersRequest ?? null,
+          equipmentRequest: body.equipmentRequest ?? null,
         },
       });
 
