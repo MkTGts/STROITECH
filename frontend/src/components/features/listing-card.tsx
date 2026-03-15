@@ -32,6 +32,8 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function ListingCard({ listing }: ListingCardProps) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const detailHref = isAuthenticated ? `/listings/${listing.id}` : "/auth/login";
+  const profileHref = (id: string) => (isAuthenticated ? `/profiles/${id}` : "/auth/login");
 
   return (
     <Card className="group overflow-hidden transition-shadow hover:shadow-lg">
@@ -59,7 +61,7 @@ export function ListingCard({ listing }: ListingCardProps) {
         )}
       </div>
       <CardContent className="p-4">
-        <Link href={`/listings/${listing.id}`}>
+        <Link href={detailHref}>
           <h3 className="line-clamp-1 font-semibold hover:text-primary">
             {listing.title}
           </h3>
@@ -80,7 +82,7 @@ export function ListingCard({ listing }: ListingCardProps) {
 
         {listing.user && (
           <div className="mt-3 flex items-center justify-between border-t pt-3">
-            <Link href={`/profiles/${listing.user.id}`} className="flex items-center gap-2">
+            <Link href={profileHref(listing.user.id)} className="flex items-center gap-2">
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-primary/10 text-xs text-primary">
                   {listing.user.name.charAt(0)}

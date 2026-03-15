@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, MessageCircle, Building2, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,20 +37,12 @@ const STATUS_TABS = [
 ];
 
 export default function ObjectsPage() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const [objects, setObjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/auth/login");
-      return;
-    }
-  }, [isAuthenticated, isLoading, router]);
 
   const fetchObjects = useCallback(async () => {
     setLoading(true);
@@ -66,10 +57,8 @@ export default function ObjectsPage() {
   }, [page, activeTab]);
 
   useEffect(() => {
-    if (isAuthenticated) fetchObjects();
-  }, [isAuthenticated, fetchObjects]);
-
-  if (!isAuthenticated) return null;
+    fetchObjects();
+  }, [fetchObjects]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -80,11 +69,13 @@ export default function ObjectsPage() {
             От участка до мебели. Добавляйте свой объект поэтапно.
           </p>
         </div>
-        <Link href="/objects/create">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" /> Создать объект
-          </Button>
-        </Link>
+        {isAuthenticated && (
+          <Link href="/objects/create">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" /> Создать объект
+            </Button>
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -94,7 +85,7 @@ export default function ObjectsPage() {
               Статус
             </h2>
             <ul className="space-y-0.5">
-              {STATUS_TABS.map((tab) => (
+              {STATUS_TABS.filter((tab) => isAuthenticated || tab.value !== "draft").map((tab) => (
                 <li key={tab.value}>
                   <button
                     type="button"
@@ -153,7 +144,7 @@ export default function ObjectsPage() {
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between">
                       <div>
-                        <Link href={`/objects/${obj.id}`}>
+                        <Link href={isAuthenticated ? `/objects/${obj.id}` : "/auth/login"}>
                           <h3 className="font-semibold hover:text-primary">{obj.title}</h3>
                         </Link>
                         <Badge className={`mt-1 ${status.color}`}>{status.label}</Badge>
@@ -204,11 +195,13 @@ export default function ObjectsPage() {
                             </p>
                           </div>
                         </div>
-                        <Link href={`/chat?to=${obj.user.id}&context=object&contextId=${obj.id}`}>
-                          <Button size="icon" variant="ghost" className="h-8 w-8">
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        {isAuthenticated && (
+                          <Link href={`/chat?to=${obj.user.id}&context=object&contextId=${obj.id}`}>
+                            <Button size="icon" variant="ghost" className="h-8 w-8">
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     )}
                   </CardContent>
