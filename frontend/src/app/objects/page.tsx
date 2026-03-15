@@ -35,7 +35,6 @@ const STATUS_TABS = [
   { value: "draft", label: "Черновики" },
   { value: "active", label: "Активные" },
   { value: "completed", label: "Завершённые" },
-  { value: "archived", label: "Архив" },
 ];
 
 export default function ObjectsPage() {

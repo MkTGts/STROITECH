@@ -23,10 +23,10 @@ export async function api<T>(endpoint: string, options: FetchOptions = {}): Prom
 
   const token = _getAccessToken();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...((customHeaders as Record<string, string>) || {}),
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (rest.body !== undefined) headers["Content-Type"] = "application/json";
 
   const response = await fetch(url, { ...rest, headers });
 

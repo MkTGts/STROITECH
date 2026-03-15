@@ -403,7 +403,12 @@ export default function ObjectDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-semibold">{object.user.companyName || object.user.name}</p>
+                    {object.user.companyName && (
+                      <p className="font-semibold">{object.user.companyName}</p>
+                    )}
+                    <p className={object.user.companyName ? "text-sm text-muted-foreground" : "font-semibold"}>
+                      {object.user.name}
+                    </p>
                   </div>
                 </div>
                 {isAuthenticated && (
