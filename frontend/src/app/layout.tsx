@@ -4,6 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/components/layout/auth-provider";
+import { CookieConsent } from "@/components/layout/cookie-consent";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
@@ -32,6 +33,7 @@ export default function RootLayout({
             <main className="flex-1">{children}</main>
             <Footer />
           </div>
+          <CookieConsent />
           <Toaster />
         </AuthProvider>
       </body>

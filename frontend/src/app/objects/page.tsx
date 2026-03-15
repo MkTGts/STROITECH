@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Plus, MessageCircle, Building2, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, MessageCircle, Building2, Clock, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +76,13 @@ export default function ObjectsPage() {
             </Button>
           </Link>
         )}
+      </div>
+
+      <div className="mb-6 flex gap-3 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Что это:</span> объект — это ваш строительный проект (дом, ремонт, коммерческий объект). Вы создаёте объект, добавляете этапы (фундамент, стены, отделка и т.д.) и при необходимости указываете, что нужно: материалы, бригады, техника. Исполнители видят объекты и могут предложить свои услуги; общение — в чате.
+        </p>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
