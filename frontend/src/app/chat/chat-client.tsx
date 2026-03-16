@@ -187,7 +187,25 @@ export function ChatPageClient() {
       return;
     }
     if (convId === SUPPORT_CONVERSATION_ID) {
-      setMessages([SUPPORT_WELCOME_MESSAGE]);
+      try {
+        const res = await api<any>("/chat/support/messages");
+        const items = (res.data.items as MessageItem[] | undefined) ?? [];
+        if (!items.length) {
+          setMessages([SUPPORT_WELCOME_MESSAGE]);
+          return;
+        }
+        setMessages(
+          items
+            .slice()
+            .sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime(),
+            ),
+        );
+      } catch {
+        setMessages([SUPPORT_WELCOME_MESSAGE]);
+      }
       return;
     }
     try {

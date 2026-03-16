@@ -360,6 +360,52 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
+  app.get("/support/messages", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+        contextType: "profile",
+        contextId: userId,
+      },
+      include: {
+        participant1: { select: { id: true, role: true as any } },
+        participant2: { select: { id: true, role: true as any } },
+        messages: {
+          orderBy: { createdAt: "asc" },
+        },
+      },
+      orderBy: { lastMessageAt: "asc" },
+    });
+
+    const messages = conversations
+      .filter((conv) => {
+        const other =
+          conv.participant1Id === userId ? conv.participant2 : conv.participant1;
+        return other && (other as any).role === "moderator";
+      })
+      .flatMap((conv) =>
+        conv.messages.map((m) => ({
+          id: m.id,
+          senderId: m.senderId,
+          content: m.content,
+          isRead: m.isRead,
+          createdAt: m.createdAt,
+          conversationId: conv.id,
+        })),
+      )
+      .sort(
+        (a, b) =>
+          (a.createdAt as Date).getTime() - (b.createdAt as Date).getTime(),
+      );
+
+    return reply.status(200).send({
+      success: true,
+      data: { items: messages },
+    });
+  });
+
   app.post("/bot", async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = getUserId(request);
     const body = chatBotSchema.parse(request.body);
