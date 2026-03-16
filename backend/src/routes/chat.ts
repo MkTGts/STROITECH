@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
+import { callAssistant } from "../lib/ai";
 
 const startConversationSchema = z.object({
   participantId: z.string().uuid(),
@@ -12,6 +13,10 @@ const startConversationSchema = z.object({
 });
 
 const sendMessageSchema = z.object({
+  content: z.string().min(1),
+});
+
+const chatBotSchema = z.object({
   content: z.string().min(1),
 });
 
@@ -54,7 +59,22 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       }),
     );
 
-    return { success: true, data: enriched };
+    const botConversation = {
+      id: "assistant-bot",
+      contextType: "profile" as const,
+      contextId: null as string | null,
+      lastMessageAt: null as Date | null,
+      lastMessage: null as any,
+      participant: {
+        id: "assistant-bot",
+        name: "Объекты-Ассистент",
+        avatarUrl: "/bot-avatar.svg",
+        companyName: null as string | null,
+      },
+      unreadCount: 0,
+    };
+
+    return { success: true, data: [botConversation, ...enriched] };
   });
 
   app.post("/conversations", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -226,5 +246,24 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     sendToUser(recipientId, { type: "notification", payload: notif });
 
     return reply.status(201).send({ success: true, data: message });
+  });
+
+  app.post("/bot", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+    const body = chatBotSchema.parse(request.body);
+
+    try {
+      const answer = await callAssistant(userId, body.content);
+      return reply.status(200).send({
+        success: true,
+        data: { reply: answer },
+      });
+    } catch (err: any) {
+      request.log.error({ err }, "AI assistant error");
+      return reply.status(500).send({
+        success: false,
+        message: "Ошибка ассистента. Попробуйте позже.",
+      });
+    }
   });
 }

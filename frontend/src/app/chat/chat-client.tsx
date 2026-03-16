@@ -28,6 +28,16 @@ type MessageItem = {
   createdAt: string;
 };
 
+const BOT_CONVERSATION_ID = "assistant-bot";
+const BOT_SENDER_ID = "assistant-bot";
+const BOT_WELCOME_MESSAGE: MessageItem = {
+  id: "bot-welcome",
+  senderId: BOT_SENDER_ID,
+  content: "Здравствуйте! Я «Объекты-Ассистент». Задайте вопрос про работу сервиса или опишите, что вы хотите сделать.",
+  isRead: true,
+  createdAt: new Date().toISOString(),
+};
+
 export function ChatPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,6 +122,10 @@ export function ChatPageClient() {
   }
 
   async function loadMessages(convId: string): Promise<void> {
+    if (convId === BOT_CONVERSATION_ID) {
+      setMessages((prev) => (prev.length > 0 ? prev : [BOT_WELCOME_MESSAGE]));
+      return;
+    }
     try {
       const res = await api<any>(`/chat/conversations/${convId}/messages`);
       setMessages(
@@ -166,17 +180,50 @@ export function ChatPageClient() {
     if (!newMessage.trim() || !activeConvId || sending) return;
     setSending(true);
     try {
-      const res = await api<any>(`/chat/conversations/${activeConvId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ content: newMessage }),
-      });
-      setMessages((prev) =>
-        [...prev, res.data as MessageItem].slice().sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-        ),
-      );
-      setNewMessage("");
-      void loadConversations();
+      if (activeConvId === BOT_CONVERSATION_ID) {
+        if (!user) return;
+        const userMessage: MessageItem = {
+          id: `local-${Date.now()}`,
+          senderId: user.id,
+          content: newMessage,
+          isRead: true,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) =>
+          [...prev, userMessage].slice().sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          ),
+        );
+        const res = await api<any>("/chat/bot", {
+          method: "POST",
+          body: JSON.stringify({ content: newMessage }),
+        });
+        const botMessage: MessageItem = {
+          id: `bot-${Date.now()}`,
+          senderId: BOT_SENDER_ID,
+          content: res.data.reply,
+          isRead: true,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) =>
+          [...prev, botMessage].slice().sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          ),
+        );
+        setNewMessage("");
+      } else {
+        const res = await api<any>(`/chat/conversations/${activeConvId}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ content: newMessage }),
+        });
+        setMessages((prev) =>
+          [...prev, res.data as MessageItem].slice().sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          ),
+        );
+        setNewMessage("");
+        void loadConversations();
+      }
     } catch {
       // ignore
     }
@@ -396,10 +443,10 @@ export function ChatPageClient() {
                           type="button"
                           onClick={() => triggerDownload(msg.content)}
                           className={cn(
-                            "inline-flex items-center gap-1 rounded-full bg-background/20 px-3 py-1 text-xs font-medium",
+                            "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors",
                             msg.senderId === user?.id
-                              ? "border border-primary/40 text-primary-foreground"
-                              : "border border-muted-foreground/40 text-muted-foreground",
+                              ? "border border-primary/40 bg-primary/10 text-primary-foreground hover:bg-primary/20"
+                              : "border border-muted-foreground/40 bg-background/20 text-muted-foreground hover:bg-background/40",
                           )}
                         >
                           Скачать вложение
