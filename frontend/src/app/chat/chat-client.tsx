@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Send, ArrowLeft, MessageCircle, Check, CheckCheck, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/store";
 import { useWsEvent } from "@/lib/hooks";
 import { sendWsMessage } from "@/lib/ws";
@@ -214,6 +214,8 @@ export function ChatPageClient() {
           isRead: true,
           createdAt: new Date().toISOString(),
         };
+        // очищаем инпут сразу, как и в обычных диалогах
+        setNewMessage("");
         let nextMessages: MessageItem[] = [];
         setMessages((prev) => {
           nextMessages = [...prev, userMessage].slice().sort(
@@ -242,7 +244,6 @@ export function ChatPageClient() {
           }
           return updated;
         });
-        setNewMessage("");
       } else {
         const res = await api<any>(`/chat/conversations/${activeConvId}/messages`, {
           method: "POST",
@@ -397,14 +398,17 @@ export function ChatPageClient() {
                   router.replace("/chat");
                 }}
                 className={cn(
-                        "flex w-full items-center gap-3 border-b p-4 text-left transition-colors",
-                        conv.id === BOT_CONVERSATION_ID
-                          ? "bg-muted/80 hover:bg-muted"
-                          : "hover:bg-muted",
-                        activeConvId === conv.id && "bg-muted",
+                  "flex w-full items-center gap-3 border-b p-4 text-left transition-colors",
+                  conv.id === BOT_CONVERSATION_ID
+                    ? "bg-slate-900 text-slate-50 hover:bg-slate-800"
+                    : "hover:bg-muted",
+                  activeConvId === conv.id && conv.id !== BOT_CONVERSATION_ID && "bg-muted",
                 )}
               >
                 <Avatar className="h-10 w-10 shrink-0">
+                  {conv.participant.avatarUrl ? (
+                    <AvatarImage src={conv.participant.avatarUrl} alt={conv.participant.name} />
+                  ) : null}
                   <AvatarFallback className="bg-primary/10 text-primary">
                     {conv.participant.name.charAt(0)}
                   </AvatarFallback>
