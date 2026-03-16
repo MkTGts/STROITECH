@@ -48,6 +48,7 @@ export function ChatPageClient() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [botThinking, setBotThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -73,7 +74,7 @@ export function ChatPageClient() {
 
   useEffect(() => {
     if (activeConvId) void loadMessages(activeConvId);
-  }, [activeConvId]);
+  }, [activeConvId, user]);
 
   useEffect(() => {
     scrollMessagesToBottom();
@@ -123,7 +124,30 @@ export function ChatPageClient() {
 
   async function loadMessages(convId: string): Promise<void> {
     if (convId === BOT_CONVERSATION_ID) {
-      setMessages((prev) => (prev.length > 0 ? prev : [BOT_WELCOME_MESSAGE]));
+      if (!user) {
+        setMessages([BOT_WELCOME_MESSAGE]);
+        return;
+      }
+      if (typeof window !== "undefined") {
+        const key = `assistantChat:${user.id}`;
+        const raw = window.localStorage.getItem(key);
+        if (raw) {
+          try {
+            const stored: MessageItem[] = JSON.parse(raw);
+            if (Array.isArray(stored) && stored.length > 0) {
+              setMessages(
+                stored.slice().sort(
+                  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+                ),
+              );
+              return;
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+      setMessages([BOT_WELCOME_MESSAGE]);
       return;
     }
     try {
@@ -177,11 +201,12 @@ export function ChatPageClient() {
   }
 
   async function handleSend(): Promise<void> {
-    if (!newMessage.trim() || !activeConvId || sending) return;
+    if (!newMessage.trim() || !activeConvId || sending || botThinking) return;
     setSending(true);
     try {
       if (activeConvId === BOT_CONVERSATION_ID) {
         if (!user) return;
+        setBotThinking(true);
         const userMessage: MessageItem = {
           id: `local-${Date.now()}`,
           senderId: user.id,
@@ -189,11 +214,13 @@ export function ChatPageClient() {
           isRead: true,
           createdAt: new Date().toISOString(),
         };
-        setMessages((prev) =>
-          [...prev, userMessage].slice().sort(
+        let nextMessages: MessageItem[] = [];
+        setMessages((prev) => {
+          nextMessages = [...prev, userMessage].slice().sort(
             (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          ),
-        );
+          );
+          return nextMessages;
+        });
         const res = await api<any>("/chat/bot", {
           method: "POST",
           body: JSON.stringify({ content: newMessage }),
@@ -205,11 +232,16 @@ export function ChatPageClient() {
           isRead: true,
           createdAt: new Date().toISOString(),
         };
-        setMessages((prev) =>
-          [...prev, botMessage].slice().sort(
+        setMessages((prev) => {
+          const updated = [...prev, botMessage].slice().sort(
             (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          ),
-        );
+          );
+          if (typeof window !== "undefined" && user) {
+            const key = `assistantChat:${user.id}`;
+            window.localStorage.setItem(key, JSON.stringify(updated));
+          }
+          return updated;
+        });
         setNewMessage("");
       } else {
         const res = await api<any>(`/chat/conversations/${activeConvId}/messages`, {
@@ -228,6 +260,7 @@ export function ChatPageClient() {
       // ignore
     }
     setSending(false);
+    setBotThinking(false);
   }
 
   async function handleAttachFiles(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -289,6 +322,28 @@ export function ChatPageClient() {
     }
   }
 
+  function renderMarkdown(content: string): JSX.Element {
+    // Очень простой рендерер markdown для ассистента:
+    // - переносы строк → <br />
+    // - **жирный текст**
+    // - ссылки [текст](url)
+    let html = content
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+    html = html.replace(
+      /\[([^\]]+?)\]\((https?:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noreferrer" class="underline">$1</a>',
+    );
+
+    html = html.replace(/\n/g, "<br />");
+
+    return <span dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+
   async function handleStartChat(): Promise<void> {
     const to = searchParams.get("to");
     const context = searchParams.get("context") || "profile";
@@ -346,8 +401,11 @@ export function ChatPageClient() {
                   router.replace("/chat");
                 }}
                 className={cn(
-                  "flex w-full items-center gap-3 border-b p-4 text-left transition-colors hover:bg-muted",
-                  activeConvId === conv.id && "bg-muted",
+                        "flex w-full items-center gap-3 border-b p-4 text-left transition-colors",
+                        conv.id === BOT_CONVERSATION_ID
+                          ? "bg-muted/80 hover:bg-muted"
+                          : "hover:bg-muted",
+                        activeConvId === conv.id && "bg-muted",
                 )}
               >
                 <Avatar className="h-10 w-10 shrink-0">
@@ -452,7 +510,11 @@ export function ChatPageClient() {
                           Скачать вложение
                         </button>
                       ) : (
-                        <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                        <p className="whitespace-pre-wrap text-sm">
+                          {msg.senderId === BOT_SENDER_ID
+                            ? renderMarkdown(msg.content)
+                            : msg.content}
+                        </p>
                       )}
                       <div className="mt-1 flex items-center justify-end gap-1 text-xs">
                         <span
@@ -480,6 +542,20 @@ export function ChatPageClient() {
                     </div>
                   </div>
                 ))}
+                {activeConvId === BOT_CONVERSATION_ID && botThinking && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[70%] rounded-2xl bg-muted px-4 py-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>Ассистент думает</span>
+                        <span className="flex gap-1">
+                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground" />
+                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:300ms]" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
             </div>
