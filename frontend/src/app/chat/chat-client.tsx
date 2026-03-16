@@ -400,7 +400,7 @@ export function ChatPageClient() {
                 className={cn(
                   "flex w-full items-center gap-3 border-b p-4 text-left transition-colors",
                   conv.id === BOT_CONVERSATION_ID
-                    ? "bg-blue-50 text-blue-900 hover:bg-blue-100"
+                    ? "bg-blue-100 text-blue-900 hover:bg-blue-150"
                     : "hover:bg-muted",
                   activeConvId === conv.id && conv.id !== BOT_CONVERSATION_ID && "bg-muted",
                 )}
