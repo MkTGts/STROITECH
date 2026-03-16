@@ -36,7 +36,7 @@ export function ListingCard({ listing }: ListingCardProps) {
   const profileHref = (id: string) => (isAuthenticated ? `/profiles/${id}` : "/auth/login");
 
   return (
-    <Card className="group overflow-hidden transition-shadow hover:shadow-lg">
+    <Card className="group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg">
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         {listing.photos.length > 0 ? (
           <img
@@ -60,7 +60,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           </Badge>
         )}
       </div>
-      <CardContent className="p-4">
+      <CardContent className="flex flex-1 flex-col p-4">
         <Link href={detailHref}>
           <h3 className="line-clamp-1 font-semibold hover:text-primary">
             {listing.title}

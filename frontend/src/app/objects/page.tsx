@@ -147,8 +147,8 @@ export default function ObjectsPage() {
             {objects.map((obj) => {
               const status = STATUS_CONFIG[obj.status] || STATUS_CONFIG.active;
               return (
-                <Card key={obj.id} className="transition-shadow hover:shadow-lg">
-                  <CardContent className="p-5">
+                <Card key={obj.id} className="flex h-full flex-col transition-shadow hover:shadow-lg">
+                  <CardContent className="flex flex-1 flex-col p-5">
                     <div className="flex items-start justify-between">
                       <div>
                         <Link href={isAuthenticated ? `/objects/${obj.id}` : "/auth/login"}>
@@ -200,7 +200,7 @@ export default function ObjectsPage() {
                     )}
 
                     {obj.user && (
-                      <div className="mt-4 flex items-center justify-between border-t pt-3">
+                      <div className="mt-4 mt-auto flex items-center justify-between border-t pt-3">
                         <div className="flex min-w-0 flex-1 items-center gap-2">
                           <Avatar className="h-7 w-7 shrink-0">
                             <AvatarFallback className="bg-primary/10 text-xs text-primary">

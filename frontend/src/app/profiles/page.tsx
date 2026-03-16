@@ -129,8 +129,8 @@ export default function ProfilesPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {users.map((user) => (
-              <Card key={user.id} className="transition-shadow hover:shadow-lg">
-                <CardContent className="p-5">
+              <Card key={user.id} className="flex h-full flex-col transition-shadow hover:shadow-lg">
+                <CardContent className="flex flex-1 flex-col p-5">
                   <div className="flex items-start gap-4">
                     <Avatar className="h-14 w-14 shrink-0">
                       <AvatarFallback className="bg-primary/10 text-lg text-primary">
@@ -158,7 +158,7 @@ export default function ProfilesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 mt-auto flex gap-2">
                     <Link href={`/profiles/${user.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">Профиль</Button>
                     </Link>

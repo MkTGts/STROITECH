@@ -109,7 +109,14 @@ export default function ListingDetailPage() {
             <p className="mt-4 whitespace-pre-wrap text-muted-foreground">{listing.description}</p>
             <p className="mt-4 flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              {new Date(listing.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+              Размещено{" "}
+              {new Date(listing.createdAt).toLocaleString("ru-RU", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           </div>
         </div>
