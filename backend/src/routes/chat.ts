@@ -416,9 +416,65 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
           (a.createdAt as Date).getTime() - (b.createdAt as Date).getTime(),
       );
 
+    const conversationIds = conversations.map((c) => c.id);
+    if (conversationIds.length > 0) {
+      await prisma.message.updateMany({
+        where: {
+          conversationId: { in: conversationIds },
+          senderId: { not: userId },
+          isRead: false,
+        },
+        data: { isRead: true },
+      });
+    }
+
     return reply.status(200).send({
       success: true,
       data: { items: messages },
+    });
+  });
+
+  app.get("/support/unread-count", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+        contextType: "profile",
+        contextId: userId,
+      },
+      include: {
+        participant1: { select: { id: true, role: true as any } },
+        participant2: { select: { id: true, role: true as any } },
+      },
+    });
+
+    const moderatorConversationIds = conversations
+      .filter((conv) => {
+        const other =
+          conv.participant1Id === userId ? conv.participant2 : conv.participant1;
+        return other && (other as any).role === "moderator";
+      })
+      .map((conv) => conv.id);
+
+    if (moderatorConversationIds.length === 0) {
+      return reply.status(200).send({
+        success: true,
+        data: { count: 0 },
+      });
+    }
+
+    const count = await prisma.message.count({
+      where: {
+        conversationId: { in: moderatorConversationIds },
+        senderId: { not: userId },
+        isRead: false,
+      },
+    });
+
+    return reply.status(200).send({
+      success: true,
+      data: { count },
     });
   });
 

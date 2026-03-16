@@ -35,6 +35,7 @@ type MessageItem = {
   content: string;
   isRead: boolean;
   createdAt: string;
+  conversationId?: string;
 };
 
 const BOT_CONVERSATION_ID = "assistant-bot";
@@ -111,39 +112,71 @@ export function ChatPageClient() {
   }
 
   useWsEvent("new_message", (payload) => {
+    // обычный диалог: сразу добавляем сообщение и отправляем событие "прочитано"
     if (payload.conversationId === activeConvId) {
       setMessages((prev) =>
         [...prev, payload as MessageItem].slice().sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         ),
       );
       sendWsMessage("message_read", {
         conversationId: activeConvId,
         recipientId: payload.senderId,
       });
+    } else if (activeConvId === SUPPORT_CONVERSATION_ID) {
+      // если открыт чат техподдержки и прилетело новое сообщение
+      // (из одного из служебных диалогов с модераторами) — перезагружаем ленту
+      void loadMessages(SUPPORT_CONVERSATION_ID);
     }
+
+    // обновляем список диалогов и бейджи непрочитанных
     void loadConversations();
   });
 
   useWsEvent("message_read", (payload) => {
     // если собеседник прочитал сообщения в текущем диалоге — отмечаем их как прочитанные
-    if (payload.conversationId === activeConvId && user) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.senderId === user.id ? { ...m, isRead: true } : m,
-        ),
-      );
-      void loadConversations();
+    if (user) {
+      if (payload.conversationId === activeConvId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === user.id ? { ...m, isRead: true } : m,
+          ),
+        );
+        void loadConversations();
+      } else if (activeConvId === SUPPORT_CONVERSATION_ID) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === user.id &&
+            m.conversationId === payload.conversationId
+              ? { ...m, isRead: true }
+              : m,
+          ),
+        );
+      }
     }
   });
 
   async function loadConversations(): Promise<void> {
     try {
-      const res = await api<any>("/chat/conversations");
+      const [convRes, supportUnreadRes] = await Promise.allSettled([
+        api<any>("/chat/conversations"),
+        api<any>("/chat/support/unread-count"),
+      ]);
+
+      if (convRes.status !== "fulfilled") return;
+
+      const res = convRes.value;
       const data = res.data as (ConversationItem & {
         contextType?: string;
         contextId?: string | null;
       })[];
+
+      let supportUnreadCount = 0;
+      if (supportUnreadRes.status === "fulfilled") {
+        const raw = supportUnreadRes.value.data as { count?: number };
+        supportUnreadCount = typeof raw.count === "number" ? raw.count : 0;
+      }
 
       const botConv = data.find((c) => c.id === BOT_CONVERSATION_ID);
 
@@ -166,7 +199,7 @@ export function ChatPageClient() {
           companyName: null,
         },
         lastMessage: null,
-        unreadCount: 0,
+        unreadCount: supportUnreadCount,
       };
 
       const ordered: ConversationItem[] = botConv
