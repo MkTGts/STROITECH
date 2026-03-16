@@ -21,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -44,6 +43,8 @@ export default function DashboardPage() {
   const [form, setForm] = useState({ name: "", phone: "", region: "", companyName: "", description: "" });
   const [managerForm, setManagerForm] = useState({ name: "", phone: "", position: "" });
   const [saving, setSaving] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -78,6 +79,41 @@ export default function DashboardPage() {
       toast.error(err.message || "Ошибка сохранения");
     }
     setSaving(false);
+  }
+
+  async function handleChangePassword() {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      toast.error("Заполните все поля для смены пароля");
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      toast.error("Новый пароль должен содержать не менее 8 символов");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Подтверждение пароля не совпадает");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await api("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+      toast.success("Пароль успешно изменён");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err: any) {
+      const message = err?.message || "Не удалось изменить пароль";
+      if (message.includes("Неверный текущий пароль")) {
+        toast.error("Неверный текущий пароль");
+      } else {
+        toast.error(message);
+      }
+    }
+    setChangingPassword(false);
   }
 
   async function handleAddManager() {
@@ -218,6 +254,56 @@ export default function DashboardPage() {
               </div>
               <p className="mt-2 text-sm capitalize text-muted-foreground">
                 {subscription ? `${subscription.plan} — ${subscription.status === "active" ? "Активна" : "Истекла"}` : "Загрузка..."}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Смена пароля</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label>Текущий пароль</Label>
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Новый пароль</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Повторите новый пароль</Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                />
+              </div>
+              <Button
+                onClick={handleChangePassword}
+                disabled={
+                  changingPassword ||
+                  !passwordForm.currentPassword ||
+                  !passwordForm.newPassword ||
+                  !passwordForm.confirmPassword
+                }
+                className="mt-1"
+              >
+                {changingPassword ? "Сохранение..." : "Изменить пароль"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Минимальная длина нового пароля — 8 символов. Не передавайте пароль третьим лицам.
               </p>
             </CardContent>
           </Card>

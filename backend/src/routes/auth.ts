@@ -19,6 +19,11 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(6),
+  newPassword: z.string().min(8),
+});
+
 /**
  * Authentication routes: register, login, refresh, and current user.
  */
@@ -69,6 +74,29 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const tokens = generateTokens(app, { userId: user.id, role: user.role });
     return { success: true, data: { user: _sanitizeUser(user), tokens } };
+  });
+
+  app.post("/change-password", { preHandler: [app.authenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+    const body = changePasswordSchema.parse(request.body);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+    }
+
+    const valid = await verifyPassword(body.currentPassword, user.passwordHash);
+    if (!valid) {
+      return reply.status(400).send({ success: false, message: "Неверный текущий пароль" });
+    }
+
+    const newHash = await hashPassword(body.newPassword);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newHash },
+    });
+
+    return reply.status(200).send({ success: true });
   });
 
   app.post("/refresh", async (request: FastifyRequest, reply: FastifyReply) => {
