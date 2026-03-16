@@ -322,11 +322,7 @@ export function ChatPageClient() {
     }
   }
 
-  function renderMarkdown(content: string): JSX.Element {
-    // Очень простой рендерер markdown для ассистента:
-    // - переносы строк → <br />
-    // - **жирный текст**
-    // - ссылки [текст](url)
+  function renderMarkdown(content: string) {
     let html = content
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
