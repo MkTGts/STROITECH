@@ -261,6 +261,20 @@ export default function ObjectDetailPage() {
             return <Badge className={`mt-2 ${status.color}`}>{status.label}</Badge>;
           })()}
 
+          {object.createdAt && (
+            <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              Создан{" "}
+              {new Date(object.createdAt).toLocaleString("ru-RU", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
+
           {object.region && (
             <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
               <MapPin className="h-4 w-4" /> Регион: {object.region}

@@ -163,6 +163,20 @@ export default function ObjectsPage() {
                       <p className="mt-1 text-xs text-muted-foreground">Регион: {obj.region}</p>
                     )}
 
+                    {obj.createdAt && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Создан{" "}
+                        {new Date(obj.createdAt).toLocaleString("ru-RU", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+
                     {obj.description && (
                       <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{obj.description}</p>
                     )}

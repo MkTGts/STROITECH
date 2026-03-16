@@ -80,6 +80,17 @@ export function ListingCard({ listing }: ListingCardProps) {
           </p>
         )}
 
+        <p className="mt-1 text-xs text-muted-foreground">
+          Размещено{" "}
+          {new Date(listing.createdAt).toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+
         {listing.user && (
           <div className="mt-3 flex items-center justify-between border-t pt-3">
             <Link href={profileHref(listing.user.id)} className="flex items-center gap-2">
