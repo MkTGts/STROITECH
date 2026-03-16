@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, MapPin, Clock, Star, Pencil } from "lucide-react";
+import { ArrowLeft, MessageCircle, MapPin, Clock, Star, Pencil, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,8 @@ export default function ListingDetailPage() {
   const { user, isAuthenticated } = useAuthStore();
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   useEffect(() => {
     api<any>(`/listings/${id}`)
@@ -30,6 +32,35 @@ export default function ListingDetailPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!listing?.photos || !Array.isArray(listing.photos)) {
+      setActivePhotoIndex(0);
+      return;
+    }
+    if (activePhotoIndex >= listing.photos.length) {
+      setActivePhotoIndex(0);
+    }
+  }, [listing, activePhotoIndex]);
+
+  function showPrevPhoto() {
+    if (!listing?.photos?.length) return;
+    setActivePhotoIndex((prev) => (prev - 1 + listing.photos.length) % listing.photos.length);
+  }
+
+  function showNextPhoto() {
+    if (!listing?.photos?.length) return;
+    setActivePhotoIndex((prev) => (prev + 1) % listing.photos.length);
+  }
+
+  function openLightbox(index: number) {
+    setActivePhotoIndex(index);
+    setIsLightboxOpen(true);
+  }
+
+  function closeLightbox() {
+    setIsLightboxOpen(false);
+  }
 
   if (loading) {
     return (
@@ -70,16 +101,68 @@ export default function ListingDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {listing.photos?.length > 0 ? (
-            <div className="grid gap-2">
-              <div className="overflow-hidden rounded-xl">
-                <img src={listing.photos[0]} alt={listing.title} className="h-80 w-full object-cover" />
+            <div className="grid gap-3">
+              <div className="relative w-full overflow-hidden rounded-xl bg-muted">
+                <div className="relative aspect-[4/3] w-full">
+                  <button
+                    type="button"
+                    className="absolute inset-0"
+                    onClick={() => openLightbox(activePhotoIndex)}
+                  >
+                    <img
+                      src={listing.photos[activePhotoIndex]}
+                      alt={listing.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                  {listing.photos.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={showPrevPhoto}
+                        className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white shadow hover:bg-black/60"
+                        aria-label="Предыдущее фото"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={showNextPhoto}
+                        className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white shadow hover:bg-black/60"
+                        aria-label="Следующее фото"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                      <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-3 py-0.5 text-xs text-white">
+                        {activePhotoIndex + 1} / {listing.photos.length}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
+
               {listing.photos.length > 1 && (
                 <div className="grid grid-cols-4 gap-2">
-                  {listing.photos.slice(1, 5).map((photo: string, i: number) => (
-                    <div key={i} className="overflow-hidden rounded-lg">
-                      <img src={photo} alt="" className="h-20 w-full object-cover" />
-                    </div>
+                  {listing.photos.slice(0, 8).map((photo: string, i: number) => (
+                    <button
+                      type="button"
+                      key={photo + i}
+                      onClick={() => openLightbox(i)}
+                      className="relative overflow-hidden rounded-lg bg-muted ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <div
+                        className={cn(
+                          "relative aspect-[4/3] w-full",
+                          activePhotoIndex === i && "ring-2 ring-primary",
+                        )}
+                      >
+                        <img
+                          src={photo}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -164,6 +247,82 @@ export default function ListingDetailPage() {
           )}
         </div>
       </div>
+
+      {isLightboxOpen && listing.photos?.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={closeLightbox}
+        >
+          <div
+            className="relative flex h-full max-h-[90vh] w-full max-w-4xl flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={closeLightbox}
+              className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80"
+              aria-label="Закрыть"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="relative flex-1 overflow-hidden rounded-xl bg-black/40">
+              <div className="relative h-full w-full">
+                <img
+                  src={listing.photos[activePhotoIndex]}
+                  alt={listing.title}
+                  className="h-full w-full object-contain"
+                />
+                {listing.photos.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={showPrevPhoto}
+                      className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow hover:bg-black/80"
+                      aria-label="Предыдущее фото"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={showNextPhoto}
+                      className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow hover:bg-black/80"
+                      aria-label="Следующее фото"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                    <div className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-0.5 text-xs text-white">
+                      {activePhotoIndex + 1} / {listing.photos.length}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {listing.photos.length > 1 && (
+              <div className="mt-3 flex justify-center gap-2 overflow-x-auto">
+                {listing.photos.slice(0, 12).map((photo: string, i: number) => (
+                  <button
+                    key={photo + i}
+                    type="button"
+                    onClick={() => setActivePhotoIndex(i)}
+                    className={cn(
+                      "relative h-14 w-20 overflow-hidden rounded-md border border-transparent",
+                      activePhotoIndex === i && "border-primary ring-1 ring-primary",
+                    )}
+                  >
+                    <img
+                      src={photo}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

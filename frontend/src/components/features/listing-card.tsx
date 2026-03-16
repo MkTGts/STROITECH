@@ -37,7 +37,7 @@ export function ListingCard({ listing }: ListingCardProps) {
 
   return (
     <Card className="group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-lg">
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+      <Link href={detailHref} className="relative block aspect-[4/3] overflow-hidden bg-muted">
         {listing.photos.length > 0 ? (
           <img
             src={listing.photos[0]}
@@ -59,7 +59,7 @@ export function ListingCard({ listing }: ListingCardProps) {
             {listing.category.name}
           </Badge>
         )}
-      </div>
+      </Link>
       <CardContent className="flex flex-1 flex-col p-4">
         <Link href={detailHref}>
           <h3 className="line-clamp-1 font-semibold hover:text-primary">
