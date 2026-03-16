@@ -2,15 +2,16 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Send, ArrowLeft, MessageCircle, Check, CheckCheck } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Check, CheckCheck, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/store";
 import { useWsEvent } from "@/lib/hooks";
 import { sendWsMessage } from "@/lib/ws";
-import { api } from "@/lib/api";
+import { api, uploadFile, uploadAttachment } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type ConversationItem = {
   id: string;
@@ -36,8 +37,10 @@ export function ChatPageClient() {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/auth/login");
@@ -180,6 +183,65 @@ export function ChatPageClient() {
     setSending(false);
   }
 
+  async function handleAttachFiles(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const files = e.target.files;
+    if (!files || !activeConvId) return;
+    if (sending || uploading) return;
+
+    const list = Array.from(files);
+    if (list.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (const file of list) {
+        try {
+          let result;
+          if (file.type.startsWith("image/")) {
+            result = await uploadFile(file);
+          } else {
+            result = await uploadAttachment(file);
+          }
+          await api<any>(`/chat/conversations/${activeConvId}/messages`, {
+            method: "POST",
+            body: JSON.stringify({ content: result.url }),
+          });
+        } catch (err: any) {
+          toast.error(err?.message || "Не удалось загрузить файл");
+        }
+      }
+      await loadMessages(activeConvId);
+      void loadConversations();
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
+  function isImageUrl(url: string): boolean {
+    return /^https?:\/\//.test(url) && /\.(png|jpe?g|webp|gif)$/i.test(url.split("?")[0]);
+  }
+
+  function isProbablyUrl(text: string): boolean {
+    return /^https?:\/\//.test(text);
+  }
+
+  function triggerDownload(url: string, filename?: string): void {
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      if (filename) a.download = filename;
+      a.target = "_blank";
+      a.rel = "noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      window.open(url, "_blank", "noreferrer");
+    }
+  }
+
   async function handleStartChat(): Promise<void> {
     const to = searchParams.get("to");
     const context = searchParams.get("context") || "profile";
@@ -317,7 +379,34 @@ export function ChatPageClient() {
                           : "bg-muted",
                       )}
                     >
-                      <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                      {isImageUrl(msg.content) ? (
+                        <button
+                          type="button"
+                          onClick={() => triggerDownload(msg.content)}
+                          className="block cursor-pointer"
+                        >
+                          <img
+                            src={msg.content}
+                            alt="Вложенное изображение"
+                            className="max-h-64 w-full max-w-xs cursor-pointer rounded-lg object-cover"
+                          />
+                        </button>
+                      ) : isProbablyUrl(msg.content) ? (
+                        <button
+                          type="button"
+                          onClick={() => triggerDownload(msg.content)}
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full bg-background/20 px-3 py-1 text-xs font-medium",
+                            msg.senderId === user?.id
+                              ? "border border-primary/40 text-primary-foreground"
+                              : "border border-muted-foreground/40 text-muted-foreground",
+                          )}
+                        >
+                          Скачать вложение
+                        </button>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                      )}
                       <div className="mt-1 flex items-center justify-end gap-1 text-xs">
                         <span
                           className={cn(
@@ -358,8 +447,25 @@ export function ChatPageClient() {
                     void handleSend();
                   }
                 }}
-                className="flex gap-2"
+                className="flex items-center gap-2"
               >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleAttachFiles}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!activeConvId || uploading}
+                  title="Прикрепить файл"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <Input
                   placeholder="Написать сообщение..."
                   value={newMessage}

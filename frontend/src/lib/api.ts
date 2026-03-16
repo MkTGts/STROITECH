@@ -66,6 +66,25 @@ export async function uploadFile(file: File): Promise<{ url: string; filename: s
   return data.data;
 }
 
+/**
+ * Upload a generic attachment (for chat, etc.).
+ */
+export async function uploadAttachment(file: File): Promise<{ url: string; filename: string; originalName?: string; mimeType?: string }> {
+  const token = _getAccessToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/upload/file`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error("Ошибка загрузки файла");
+  const data = await response.json();
+  return data.data;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
