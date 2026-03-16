@@ -38,8 +38,24 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         OR: [{ participant1Id: userId }, { participant2Id: userId }],
       },
       include: {
-        participant1: { select: { id: true, name: true, avatarUrl: true, companyName: true } },
-        participant2: { select: { id: true, name: true, avatarUrl: true, companyName: true } },
+        participant1: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            companyName: true,
+            role: true,
+          },
+        },
+        participant2: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            companyName: true,
+            role: true,
+          },
+        },
         messages: { take: 1, orderBy: { createdAt: "desc" } },
       },
       orderBy: { lastMessageAt: "desc" },

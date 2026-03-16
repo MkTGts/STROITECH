@@ -16,9 +16,17 @@ import { toast } from "sonner";
 
 type ConversationItem = {
   id: string;
-  participant: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  participant: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    companyName: string | null;
+    role?: string | null;
+  };
   lastMessage: { content: string; createdAt: string } | null;
   unreadCount: number;
+  contextType?: "listing" | "object" | "profile";
+  contextId?: string | null;
 };
 
 type MessageItem = {
@@ -132,9 +140,22 @@ export function ChatPageClient() {
   async function loadConversations(): Promise<void> {
     try {
       const res = await api<any>("/chat/conversations");
-      const data = res.data as ConversationItem[];
+      const data = res.data as (ConversationItem & {
+        contextType?: string;
+        contextId?: string | null;
+      })[];
+
       const botConv = data.find((c) => c.id === BOT_CONVERSATION_ID);
-      const others = data.filter((c) => c.id !== BOT_CONVERSATION_ID);
+
+      const filtered = data.filter((c) => {
+        if (c.id === BOT_CONVERSATION_ID) return false;
+        if (!user) return true;
+        const isSupportThread =
+          c.contextType === "profile" &&
+          c.contextId === user.id &&
+          c.participant?.role === "moderator";
+        return !isSupportThread;
+      });
 
       const supportConv: ConversationItem = {
         id: SUPPORT_CONVERSATION_ID,
@@ -149,8 +170,8 @@ export function ChatPageClient() {
       };
 
       const ordered: ConversationItem[] = botConv
-        ? [botConv, supportConv, ...others]
-        : [supportConv, ...data];
+        ? [botConv, supportConv, ...filtered]
+        : [supportConv, ...filtered];
 
       setConversations(ordered);
     } catch {
