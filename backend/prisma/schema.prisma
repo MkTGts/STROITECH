@@ -12,6 +12,7 @@ enum UserRole {
   builder
   equipment
   client
+  moderator
 }
 
 enum ListingStatus {

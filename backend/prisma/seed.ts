@@ -41,6 +41,7 @@ async function _seedCategories(): Promise<void> {
 
 async function _seedDemoUsers(): Promise<void> {
   const hash = await bcrypt.hash("demo123", 12);
+  const adminHash = await bcrypt.hash("J,]trnsAdm321", 12);
 
   const demoUsers = [
     { email: "supplier@demo.ru", role: "supplier" as const, name: "СтройМатериалы Плюс", companyName: "ООО СтройМатериалы", description: "Поставка строительных материалов по всей России. Кирпич, блоки, бетон, цемент.", phone: "+79001234567" },
@@ -62,6 +63,29 @@ async function _seedDemoUsers(): Promise<void> {
         data: { userId: user.id, plan: "premium", status: "active", expiresAt, autoRenew: false },
       });
     }
+  }
+
+  // Create moderator admin user
+  const existingAdmin = await prisma.user.findUnique({ where: { email: "admin@stroitech.local" } });
+  if (!existingAdmin) {
+    const adminUser = await prisma.user.create({
+      data: {
+        email: "admin@stroitech.local",
+        phone: "+70000000000",
+        passwordHash: adminHash,
+        role: "moderator",
+        name: "Администратор",
+        region: "Москва",
+        companyName: "Stroitech",
+        description: "Системный модератор площадки.",
+      },
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+    await prisma.subscription.create({
+      data: { userId: adminUser.id, plan: "premium", status: "active", expiresAt, autoRenew: false },
+    });
   }
 }
 

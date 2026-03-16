@@ -20,6 +20,10 @@ const chatBotSchema = z.object({
   content: z.string().min(1),
 });
 
+const supportSchema = z.object({
+  content: z.string().min(1),
+});
+
 /**
  * Chat routes: conversations and messages.
  */
@@ -246,6 +250,92 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     sendToUser(recipientId, { type: "notification", payload: notif });
 
     return reply.status(201).send({ success: true, data: message });
+  });
+
+  app.post("/support", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+    const body = supportSchema.parse(request.body);
+
+    const sender = await prisma.user.findUnique({ where: { id: userId } });
+    if (!sender) {
+      return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+    }
+
+    const moderators = await prisma.user.findMany({
+      where: { role: "moderator" as any },
+      select: { id: true },
+    });
+
+    if (moderators.length === 0) {
+      return reply.status(200).send({
+        success: true,
+        data: { delivered: false },
+      });
+    }
+
+    for (const mod of moderators) {
+      const existingConv = await prisma.conversation.findFirst({
+        where: {
+          OR: [
+            { participant1Id: userId, participant2Id: mod.id, contextType: "profile", contextId: userId },
+            { participant1Id: mod.id, participant2Id: userId, contextType: "profile", contextId: userId },
+          ],
+        },
+      });
+
+      const conversation =
+        existingConv ??
+        (await prisma.conversation.create({
+          data: {
+            participant1Id: userId,
+            participant2Id: mod.id,
+            contextType: "profile",
+            contextId: userId,
+            lastMessageAt: new Date(),
+          },
+        }));
+
+      const message = await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderId: userId,
+          content: body.content,
+        },
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() },
+      });
+
+      sendToUser(mod.id, {
+        type: "new_message",
+        payload: {
+          conversationId: conversation.id,
+          id: message.id,
+          senderId: message.senderId,
+          content: message.content,
+          isRead: message.isRead,
+          createdAt: message.createdAt,
+        },
+      });
+
+      const notif = await prisma.notification.create({
+        data: {
+          userId: mod.id,
+          type: "message",
+          content: `ТП_${sender.companyName || sender.name}: новое сообщение в техподдержку`,
+          metadata: { conversationId: conversation.id, messageId: message.id },
+        },
+      });
+
+      sendToUser(mod.id, { type: "notification", payload: notif });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      data: { delivered: true },
+    });
   });
 
   app.post("/bot", async (request: FastifyRequest, reply: FastifyReply) => {

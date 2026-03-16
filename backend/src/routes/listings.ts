@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { getUserId } from "../lib/auth";
+import { getUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
 
 const createListingSchema = z.object({
@@ -124,10 +124,13 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id } = request.params as { id: string };
       const body = updateListingSchema.parse(request.body);
 
-      const existing = await prisma.listing.findFirst({ where: { id, userId } });
+      const where: any = isModerator ? { id } : { id, userId };
+      const existing = await prisma.listing.findFirst({ where });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объявление не найдено" });
       }
@@ -142,9 +145,12 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id } = request.params as { id: string };
 
-      const existing = await prisma.listing.findFirst({ where: { id, userId } });
+      const where: any = isModerator ? { id } : { id, userId };
+      const existing = await prisma.listing.findFirst({ where });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объявление не найдено" });
       }

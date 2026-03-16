@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { getUserId, getOptionalUserId } from "../lib/auth";
+import { getUserId, getOptionalUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
 
 const stageItemSchema = z.object({
@@ -50,14 +50,27 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const currentUserId = getOptionalUserId(request);
+    const role = request.user ? getUserRole(request) : null;
 
-    const visibleWhere = { isVisible: true, status: { not: "draft" as const } };
-    const draftWhere = currentUserId ? { userId: currentUserId, status: "draft" as const } : null;
+    const isModerator = role === "moderator";
+    const visibleWhere = isModerator
+      ? {}
+      : { isVisible: true, status: { not: "draft" as const } };
+    const draftWhere = isModerator
+      ? {}
+      : currentUserId
+        ? { userId: currentUserId, status: "draft" as const }
+        : null;
 
     if (status) {
       // Filter by status: then only apply status filter
-      const where: any = status === "draft" ? { userId: currentUserId || "", status: "draft" } : { ...visibleWhere, status };
-      if (status === "draft" && !currentUserId) {
+      const where: any =
+        status === "draft"
+          ? isModerator
+            ? { status: "draft" }
+            : { userId: currentUserId || "", status: "draft" }
+          : { ...visibleWhere, status };
+      if (status === "draft" && !currentUserId && !isModerator) {
         return {
           success: true,
           data: { items: [], total: 0, page: pageNum, limit: limitNum, totalPages: 0 },
@@ -82,7 +95,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       };
     }
 
-    if (!currentUserId) {
+    if (!currentUserId && !isModerator) {
       const [items, total] = await Promise.all([
         prisma.constructionObject.findMany({
           where: visibleWhere,
@@ -102,18 +115,31 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       };
     }
 
-    const [drafts, draftCount, otherCount] = await Promise.all([
-      prisma.constructionObject.findMany({
-        where: draftWhere!,
-        include: {
-          user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
-          stages: true,
-        },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.constructionObject.count({ where: draftWhere ?? undefined }),
-      prisma.constructionObject.count({ where: visibleWhere }),
-    ]);
+    const [drafts, draftCount, otherCount] = isModerator
+      ? await Promise.all([
+          prisma.constructionObject.findMany({
+            where: { status: "draft" },
+            include: {
+              user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
+              stages: true,
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.constructionObject.count({ where: { status: "draft" } }),
+          prisma.constructionObject.count({ where: { status: { not: "draft" } } }),
+        ])
+      : await Promise.all([
+          prisma.constructionObject.findMany({
+            where: draftWhere!,
+            include: {
+              user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
+              stages: true,
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+          prisma.constructionObject.count({ where: draftWhere ?? undefined }),
+          prisma.constructionObject.count({ where: visibleWhere }),
+        ]);
 
     const total = draftCount + otherCount;
     const totalPages = Math.ceil(total / limitNum);
@@ -151,6 +177,9 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
   app.get("/:id", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const currentUserId = getOptionalUserId(request);
+    const role = request.user ? getUserRole(request) : null;
+    const isModerator = role === "moderator";
+
     const obj = await prisma.constructionObject.findUnique({
       where: { id },
       include: {
@@ -162,7 +191,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     if (!obj) {
       return reply.status(404).send({ success: false, message: "Объект не найден" });
     }
-    if (obj.status === "draft" && obj.userId !== currentUserId) {
+    if (!isModerator && obj.status === "draft" && obj.userId !== currentUserId) {
       return reply.status(404).send({ success: false, message: "Объект не найден" });
     }
     return { success: true, data: obj };
@@ -224,9 +253,12 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id } = request.params as { id: string };
 
-      const existing = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      const where: any = isModerator ? { id } : { id, userId };
+      const existing = await prisma.constructionObject.findFirst({ where });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
       }
@@ -247,10 +279,13 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id } = request.params as { id: string };
       const body = updateObjectSchema.parse(request.body);
 
-      const existing = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      const where: any = isModerator ? { id } : { id, userId };
+      const existing = await prisma.constructionObject.findFirst({ where });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
       }
@@ -277,10 +312,13 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id } = request.params as { id: string };
       const body = setStatusSchema.parse(request.body);
 
-      const existing = await prisma.constructionObject.findFirst({ where: { id, userId } });
+      const where: any = isModerator ? { id } : { id, userId };
+      const existing = await prisma.constructionObject.findFirst({ where });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
       }
@@ -309,11 +347,13 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id } = request.params as { id: string };
       const body = createStageSchema.parse(request.body);
 
       const obj = await prisma.constructionObject.findFirst({
-        where: { id, userId },
+        where: isModerator ? { id } : { id, userId },
         include: { stages: { select: { stageType: true } } },
       });
       if (!obj) {
@@ -352,10 +392,12 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = getUserId(request);
+      const role = getUserRole(request);
+      const isModerator = role === "moderator";
       const { id, stageId } = request.params as { id: string; stageId: string };
 
       const obj = await prisma.constructionObject.findFirst({
-        where: { id, userId },
+        where: isModerator ? { id } : { id, userId },
         include: { stages: { select: { id: true } } },
       });
       if (!obj) {

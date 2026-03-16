@@ -30,10 +30,23 @@ type MessageItem = {
 
 const BOT_CONVERSATION_ID = "assistant-bot";
 const BOT_SENDER_ID = "assistant-bot";
+const SUPPORT_CONVERSATION_ID = "support-chat";
+const SUPPORT_SENDER_ID = "support-chat";
 const BOT_WELCOME_MESSAGE: MessageItem = {
   id: "bot-welcome",
   senderId: BOT_SENDER_ID,
   content: "Здравствуйте! Я «Объекты-Ассистент». Задайте вопрос про работу сервиса или опишите, что вы хотите сделать.",
+  isRead: true,
+  createdAt: new Date().toISOString(),
+};
+
+const SUPPORT_WELCOME_MESSAGE: MessageItem = {
+  id: "support-welcome",
+  senderId: SUPPORT_SENDER_ID,
+  content:
+    "Здравствуйте! Это чат технической поддержки сервиса «Объекты Онлайн».\n\n" +
+    "Используйте этот диалог, если у вас есть вопросы по работе платформы, проблемы с доступом, объявлениями или объектами, а также если вы хотите сообщить об ошибке.\n\n" +
+    "Все сообщения из этого чата автоматически отправляются в техническую поддержку сервиса. Среднее время реакции на обращение — около 1 часа в рабочее время.",
   isRead: true,
   createdAt: new Date().toISOString(),
 };
@@ -116,7 +129,27 @@ export function ChatPageClient() {
   async function loadConversations(): Promise<void> {
     try {
       const res = await api<any>("/chat/conversations");
-      setConversations(res.data);
+      const data = res.data as ConversationItem[];
+      const botConv = data.find((c) => c.id === BOT_CONVERSATION_ID);
+      const others = data.filter((c) => c.id !== BOT_CONVERSATION_ID);
+
+      const supportConv: ConversationItem = {
+        id: SUPPORT_CONVERSATION_ID,
+        participant: {
+          id: SUPPORT_CONVERSATION_ID,
+          name: "Тех. поддержка",
+          avatarUrl: "/bot-avatar.svg",
+          companyName: null,
+        },
+        lastMessage: null,
+        unreadCount: 0,
+      };
+
+      const ordered: ConversationItem[] = botConv
+        ? [botConv, supportConv, ...others]
+        : [supportConv, ...data];
+
+      setConversations(ordered);
     } catch {
       // ignore
     }
@@ -148,6 +181,10 @@ export function ChatPageClient() {
         }
       }
       setMessages([BOT_WELCOME_MESSAGE]);
+      return;
+    }
+    if (convId === SUPPORT_CONVERSATION_ID) {
+      setMessages([SUPPORT_WELCOME_MESSAGE]);
       return;
     }
     try {
@@ -243,6 +280,25 @@ export function ChatPageClient() {
             window.localStorage.setItem(key, JSON.stringify(updated));
           }
           return updated;
+        });
+      } else if (activeConvId === SUPPORT_CONVERSATION_ID) {
+        if (!user) return;
+        const userMessage: MessageItem = {
+          id: `support-local-${Date.now()}`,
+          senderId: user.id,
+          content: newMessage,
+          isRead: true,
+          createdAt: new Date().toISOString(),
+        };
+        setNewMessage("");
+        setMessages((prev) =>
+          [...prev, userMessage].slice().sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          ),
+        );
+        await api<any>("/chat/support", {
+          method: "POST",
+          body: JSON.stringify({ content: newMessage }),
         });
       } else {
         const res = await api<any>(`/chat/conversations/${activeConvId}/messages`, {
