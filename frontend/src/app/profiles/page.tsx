@@ -30,7 +30,7 @@ const TABS = [
 
 export default function ProfilesPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -68,6 +68,11 @@ export default function ProfilesPage() {
   }, [isAuthenticated, fetchUsers]);
 
   if (!isAuthenticated) return null;
+
+  const isModerator = user?.role === "moderator";
+  const visibleUsers = isModerator
+    ? users
+    : users.filter((u) => u.role !== "moderator" && u.role !== "client");
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -121,14 +126,14 @@ export default function ProfilesPage() {
             <div key={i} className="h-44 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
-      ) : users.length === 0 ? (
+      ) : visibleUsers.length === 0 ? (
         <div className="rounded-xl border bg-card p-16 text-center text-muted-foreground">
           Участники не найдены
         </div>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {users.map((user) => (
+            {visibleUsers.map((user) => (
               <Card key={user.id} className="flex h-full flex-col transition-shadow hover:shadow-lg">
                 <CardContent className="flex flex-1 flex-col p-5">
                   <div className="flex items-start gap-4">

@@ -91,6 +91,7 @@ export default function ObjectDetailPage() {
   }, [id]);
 
   const isOwner = isAuthenticated && user?.id === object?.userId;
+  const isModerator = isAuthenticated && user?.role === "moderator";
 
   function startEditStage(stage: any) {
     setEditingStageId(stage.id);
@@ -145,7 +146,8 @@ export default function ObjectDetailPage() {
     }
   }
 
-  const canAddStage = isOwner && (object?.status === "draft" || object?.status === "active");
+  const canAddStage =
+    (isOwner || isModerator) && (object?.status === "draft" || object?.status === "active");
   const existingStageTypes = object?.stages?.map((s: any) => s.stageType) ?? [];
   const availableStageTypes = Object.keys(STAGE_LABELS).filter((t) => !existingStageTypes.includes(t));
 
@@ -223,7 +225,7 @@ export default function ObjectDetailPage() {
             <ArrowLeft className="h-4 w-4" /> К объектам
           </Button>
         </Link>
-        {isAuthenticated && user?.id === object.userId && (
+        {isAuthenticated && (isOwner || isModerator) && (
           <div className="flex flex-wrap items-center gap-2">
             {object.status === "draft" && (
               <Link href={`/objects/${id}/edit`}>
@@ -323,7 +325,7 @@ export default function ObjectDetailPage() {
                           )}
                         </div>
                       </div>
-                      {isOwner && object.status !== "completed" && !isEditing && (
+                      {(isOwner || isModerator) && object.status !== "completed" && !isEditing && (
                         <Button variant="ghost" size="sm" className="gap-1 shrink-0" onClick={() => startEditStage(stage)}>
                           <Pencil className="h-3.5 w-3.5" /> Редактировать этап
                         </Button>

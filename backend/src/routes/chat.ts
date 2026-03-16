@@ -252,6 +252,28 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(201).send({ success: true, data: message });
   });
 
+  app.delete("/conversations/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+    const { id } = request.params as { id: string };
+
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id,
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+      },
+    });
+
+    if (!conversation) {
+      return reply.status(404).send({ success: false, message: "Диалог не найден" });
+    }
+
+    await prisma.conversation.delete({
+      where: { id },
+    });
+
+    return reply.status(200).send({ success: true });
+  });
+
   app.post("/support", async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = getUserId(request);
     const body = supportSchema.parse(request.body);

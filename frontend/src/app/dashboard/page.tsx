@@ -13,6 +13,8 @@ import {
   Plus,
   Phone,
   Trash2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +47,11 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [changingPassword, setChangingPassword] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -263,32 +270,71 @@ export default function DashboardPage() {
               <CardTitle>Смена пароля</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div>
+              <div className="space-y-1.5">
                 <Label>Текущий пароль</Label>
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPasswords.current ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((prev) => ({ ...prev, current: !prev.current }))
+                    }
+                    className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPasswords.current ? "Скрыть пароль" : "Показать пароль"}
+                  >
+                    {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label>Новый пароль</Label>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPasswords.new ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm((p) => ({ ...p, newPassword: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((prev) => ({ ...prev, new: !prev.new }))
+                    }
+                    className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPasswords.new ? "Скрыть пароль" : "Показать пароль"}
+                  >
+                    {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-              <div>
+              <div className="space-y-1.5">
                 <Label>Повторите новый пароль</Label>
-                <Input
-                  type="password"
-                  autoComplete="new-password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPasswords.confirm ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPasswords((prev) => ({ ...prev, confirm: !prev.confirm }))
+                    }
+                    className="absolute inset-y-0 right-2 flex items-center text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label={showPasswords.confirm ? "Скрыть пароль" : "Показать пароль"}
+                  >
+                    {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <Button
                 onClick={handleChangePassword}

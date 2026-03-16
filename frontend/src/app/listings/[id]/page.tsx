@@ -82,6 +82,9 @@ export default function ListingDetailPage() {
     );
   }
 
+  const isOwner = isAuthenticated && user?.id === listing.userId;
+  const isModerator = isAuthenticated && user?.role === "moderator";
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-4 flex items-center gap-2">
@@ -90,7 +93,7 @@ export default function ListingDetailPage() {
             <ArrowLeft className="h-4 w-4" /> К объявлениям
           </Button>
         </Link>
-        {isAuthenticated && user?.id === listing.userId && (
+        {isAuthenticated && (isOwner || isModerator) && (
           <Link href={`/listings/${id}/edit`}>
             <Button variant="outline" size="sm" className="gap-2">
               <Pencil className="h-4 w-4" /> Редактировать
