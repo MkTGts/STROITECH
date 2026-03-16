@@ -179,12 +179,24 @@ npx prisma migrate deploy
   - Клиент чата: `frontend/src/app/chat/chat-client.tsx`:
     - Если выбран диалог `assistant-bot`, сообщения не ходят в Prisma, а отправляются на `/chat/bot` и отображаются как диалог с ботом.
 
-### Настройка AI‑модели (Timeweb AI)
+### Настройка AI‑агента (Timeweb Cloud AI)
 
-Чтобы чат-бот работал в продакшене на Timeweb App Platform, нужно подключить AI‑endpoint (например, Timeweb AI) через переменные окружения backend‑сервиса:
+Для интеграции с Timeweb Cloud AI используется endpoint `https://agent.timeweb.cloud` и вызов метода `POST /api/v1/cloud-ai/agents/{agent_access_id}/call` (см. [документацию Timeweb Cloud AI](https://agent.timeweb.cloud/docs?roistat_visit=9409636)).
 
-- `AI_API_URL` — URL REST‑endpoint модели Timeweb (например, эндпоинт чата).
-- `AI_API_KEY` — API‑ключ доступа к модели.
-- `AI_MODEL` — имя модели (например, `gpt-4.1-mini` или модель Timeweb; используется в `callAssistant`). Если не указано, берётся значение по умолчанию из кода.
+В backend‑сервисе нужно задать следующие переменные окружения:
 
-После изменения переменных окружения перезапусти приложение, чтобы backend начал использовать указанную AI‑модель для ответов чат‑бота.
+- `AI_API_URL` — базовый URL Cloud AI (по умолчанию используется `https://agent.timeweb.cloud`).
+- `AI_AGENT_ID` — `agent_access_id` вашего агента в Timeweb Cloud AI.
+- `AI_API_KEY` — API‑ключ (Bearer‑токен) для авторизации.
+
+Backend будет отправлять запросы вида:
+
+- `POST {AI_API_URL}/api/v1/cloud-ai/agents/{AI_AGENT_ID}/call`  
+  с заголовками:
+  - `Authorization: Bearer <AI_API_KEY>`
+  - `x-proxy-source: stroitech-backend`
+  - `Content-Type: application/json`
+  и телом:
+  - `{ "message": "<системный промпт + текст пользователя>" }`
+
+После изменения переменных окружения перезапусти приложение, чтобы чат-бот начал использовать сконфигурированный агент Timeweb Cloud AI.

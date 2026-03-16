@@ -1,45 +1,48 @@
 import { CHATBOT_SYSTEM_PROMPT } from "../config/chatbotPrompt";
 
-type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
-
 export async function callAssistant(userId: string, content: string): Promise<string> {
-  if (!process.env.AI_API_URL || !process.env.AI_API_KEY) {
-    throw new Error("AI API is not configured");
+  const baseUrl = process.env.AI_API_URL || "https://agent.timeweb.cloud";
+  const agentId = process.env.AI_AGENT_ID;
+  const apiKey = process.env.AI_API_KEY;
+
+  if (!agentId || !apiKey) {
+    throw new Error("AI agent is not configured (AI_AGENT_ID / AI_API_KEY)");
   }
 
-  const messages: ChatMessage[] = [
-    { role: "system", content: CHATBOT_SYSTEM_PROMPT },
-    {
-      role: "system",
-      content: `ID пользователя: ${userId}. Отвечай, учитывая, что это диалог внутри сервиса "Объекты.online".`,
-    },
-    { role: "user", content },
-  ];
+  const url = `${baseUrl.replace(/\/$/, "")}/api/v1/cloud-ai/agents/${agentId}/call`;
 
-  const response = await fetch(process.env.AI_API_URL, {
+  const message = [
+    CHATBOT_SYSTEM_PROMPT,
+    "",
+    `ID пользователя: ${userId}`,
+    "",
+    "Вопрос / сообщение пользователя:",
+    content,
+  ].join("\n");
+
+  const response = await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.AI_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
+      "x-proxy-source": "stroitech-backend",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.AI_MODEL || "gpt-4.1-mini",
-      messages,
+      message,
     }),
   });
 
   if (!response.ok) {
-    throw new Error("AI API request failed");
+    const text = await response.text().catch(() => "");
+    throw new Error(`AI API request failed: ${response.status} ${text}`);
   }
 
   const data: any = await response.json();
-  const text: string | undefined = data?.choices?.[0]?.message?.content;
+  const text: string | undefined = data?.message;
   if (!text) {
     throw new Error("AI API returned empty response");
   }
   return text;
 }
+
 
