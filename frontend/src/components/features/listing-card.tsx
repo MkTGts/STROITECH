@@ -92,7 +92,7 @@ export function ListingCard({ listing }: ListingCardProps) {
         </p>
 
         {listing.user && (
-          <div className="mt-3 flex items-center justify-between border-t pt-3">
+          <div className="mt-auto flex items-center justify-between border-t pt-3">
             <Link href={profileHref(listing.user.id)} className="flex items-center gap-2">
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-primary/10 text-xs text-primary">
