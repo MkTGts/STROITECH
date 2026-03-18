@@ -90,10 +90,11 @@ export default function ObjectDetailPage() {
     fetchObject().finally(() => setLoading(false));
   }, [id]);
 
-  const roleFromToken = isAuthenticated ? _getRoleFromAccessToken() : null;
-  const isModerator = isAuthenticated && (user?.role === "moderator" || roleFromToken === "moderator");
-  const isOwner = isAuthenticated && user?.id === object?.userId;
-  const canManageObject = isAuthenticated && (isModerator || isOwner);
+  const hasAccessToken = _hasAccessToken();
+  const roleFromToken = hasAccessToken ? _getRoleFromAccessToken() : null;
+  const isModerator = user?.role === "moderator" || roleFromToken === "moderator";
+  const isOwner = user?.id != null && user.id === object?.userId;
+  const canManageObject = (hasAccessToken || isAuthenticated) && (isModerator || isOwner);
 
   function startEditStage(stage: any) {
     setEditingStageId(stage.id);
@@ -567,4 +568,9 @@ function _getRoleFromAccessToken(): string | null {
   } catch {
     return null;
   }
+}
+
+function _hasAccessToken(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean(window.localStorage.getItem("accessToken"));
 }
