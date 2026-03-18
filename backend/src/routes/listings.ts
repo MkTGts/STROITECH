@@ -166,6 +166,7 @@ function _buildListingWhere(query: Record<string, string>): Record<string, unkno
 
   if (query.categoryId) where.categoryId = Number(query.categoryId);
   if (query.categoryType) where.category = { type: query.categoryType };
+  if (query.region) where.region = query.region;
   if (query.search) {
     where.OR = [
       { title: { contains: query.search, mode: "insensitive" } },

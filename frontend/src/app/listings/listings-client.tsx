@@ -6,11 +6,13 @@ import { Search, Plus } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ListingCard } from "@/components/features/listing-card";
 import { useAuthStore } from "@/lib/store";
 import { useDebounce } from "@/lib/hooks";
 import { api } from "@/lib/api";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 type Listing = {
   id: string;
@@ -41,6 +43,7 @@ export function ListingsPageClient() {
   const [activeTab, setActiveTab] = useState(searchParams.get("categoryType") || "all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [region, setRegion] = useState<string>("all");
   const debouncedSearch = useDebounce(search, 300);
 
   const fetchListings = useCallback(async () => {
@@ -49,6 +52,7 @@ export function ListingsPageClient() {
       const params: Record<string, string | number> = { page, limit: 12 };
       if (activeTab !== "all") params.categoryType = activeTab;
       if (debouncedSearch) params.search = debouncedSearch;
+      if (region !== "all") params.region = region;
 
       const res = await api<any>("/listings", { params });
       setListings(res.data.items);
@@ -58,7 +62,7 @@ export function ListingsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch, page]);
+  }, [activeTab, debouncedSearch, page, region]);
 
   useEffect(() => {
     void fetchListings();
@@ -105,7 +109,30 @@ export function ListingsPageClient() {
                 </li>
               ))}
             </ul>
-            {/* Здесь можно добавить блоки: Регион, Цена и т.д. */}
+            <div className="mt-4">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Регион
+              </h2>
+              <Select
+                value={region}
+                onValueChange={(v) => {
+                  setRegion(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Все регионы" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                  <SelectItem value="all">Все регионы</SelectItem>
+                  {RUSSIAN_REGIONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </nav>
         </aside>
 

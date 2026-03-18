@@ -23,11 +23,12 @@ const managerSchema = z.object({
  */
 export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (request: FastifyRequest) => {
-    const { role, search, page = "1", limit = "20" } = request.query as Record<string, string>;
+    const { role, search, region, page = "1", limit = "20" } = request.query as Record<string, string>;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = {};
 
     if (role) where.role = role;
+    if (region) where.region = region;
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },

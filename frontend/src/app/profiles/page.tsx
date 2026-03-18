@@ -6,6 +6,7 @@ import { Search, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/store";
 import { useDebounce } from "@/lib/hooks";
 import { api } from "@/lib/api";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",
@@ -35,6 +37,7 @@ export default function ProfilesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [region, setRegion] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
@@ -52,6 +55,7 @@ export default function ProfilesPage() {
       const params: Record<string, string | number> = { page, limit: 12 };
       if (activeTab !== "all") params.role = activeTab;
       if (debouncedSearch) params.search = debouncedSearch;
+      if (region !== "all") params.region = region;
 
       const res = await api<any>("/users", { params });
       setUsers(res.data.items);
@@ -61,7 +65,7 @@ export default function ProfilesPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch, page]);
+  }, [activeTab, debouncedSearch, page, region]);
 
   useEffect(() => {
     if (isAuthenticated) fetchUsers();
@@ -98,7 +102,30 @@ export default function ProfilesPage() {
                 </li>
               ))}
             </ul>
-            {/* Здесь можно добавить блоки: Регион, Специализация и т.д. */}
+            <div className="mt-4">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Регион
+              </h2>
+              <Select
+                value={region}
+                onValueChange={(v) => {
+                  setRegion(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Все регионы" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                  <SelectItem value="all">Все регионы</SelectItem>
+                  {RUSSIAN_REGIONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </nav>
         </aside>
 

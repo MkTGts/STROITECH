@@ -46,20 +46,21 @@ const createStageSchema = z.object({
  */
 export async function objectRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest) => {
-    const { page = "1", limit = "20", status } = request.query as Record<string, string>;
+    const { page = "1", limit = "20", status, region } = request.query as Record<string, string>;
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const currentUserId = getOptionalUserId(request);
     const role = request.user ? getUserRole(request) : null;
 
+    const baseWhere: Record<string, unknown> = region ? { region } : {};
     const isModerator = role === "moderator";
     const visibleWhere = isModerator
-      ? {}
-      : { isVisible: true, status: { not: "draft" as const } };
+      ? { ...baseWhere }
+      : { ...baseWhere, isVisible: true, status: { not: "draft" as const } };
     const draftWhere = isModerator
-      ? {}
+      ? { ...baseWhere }
       : currentUserId
-        ? { userId: currentUserId, status: "draft" as const }
+        ? { ...baseWhere, userId: currentUserId, status: "draft" as const }
         : null;
 
     if (status) {
@@ -67,8 +68,8 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       const where: any =
         status === "draft"
           ? isModerator
-            ? { status: "draft" }
-            : { userId: currentUserId || "", status: "draft" }
+            ? { ...baseWhere, status: "draft" }
+            : { ...baseWhere, userId: currentUserId || "", status: "draft" }
           : { ...visibleWhere, status };
       if (status === "draft" && !currentUserId && !isModerator) {
         return {
@@ -118,15 +119,15 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
     const [drafts, draftCount, otherCount] = isModerator
       ? await Promise.all([
           prisma.constructionObject.findMany({
-            where: { status: "draft" },
+            where: { ...baseWhere, status: "draft" },
             include: {
               user: { select: { id: true, name: true, companyName: true, avatarUrl: true } },
               stages: true,
             },
             orderBy: { createdAt: "desc" },
           }),
-          prisma.constructionObject.count({ where: { status: "draft" } }),
-          prisma.constructionObject.count({ where: { status: { not: "draft" } } }),
+          prisma.constructionObject.count({ where: { ...baseWhere, status: "draft" } }),
+          prisma.constructionObject.count({ where: { ...baseWhere, status: { not: "draft" } } }),
         ])
       : await Promise.all([
           prisma.constructionObject.findMany({

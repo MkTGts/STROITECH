@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const STAGE_LABELS: Record<string, string> = {
   realty: "Недвижимость",
@@ -41,6 +43,7 @@ export default function ObjectsPage() {
   const [objects, setObjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [region, setRegion] = useState<string>("all");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -49,12 +52,13 @@ export default function ObjectsPage() {
     try {
       const params: Record<string, string | number> = { page, limit: 12 };
       if (activeTab !== "all") params.status = activeTab;
+      if (region !== "all") params.region = region;
       const res = await api<any>("/objects", { params });
       setObjects(res.data.items);
       setTotalPages(res.data.totalPages);
     } catch { /* ignore */ }
     setLoading(false);
-  }, [page, activeTab]);
+  }, [page, activeTab, region]);
 
   useEffect(() => {
     fetchObjects();
@@ -114,6 +118,30 @@ export default function ObjectsPage() {
                 Показаны только ваши черновики
               </p>
             )}
+            <div className="mt-4">
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Регион
+              </h2>
+              <Select
+                value={region}
+                onValueChange={(v) => {
+                  setRegion(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Все регионы" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                  <SelectItem value="all">Все регионы</SelectItem>
+                  {RUSSIAN_REGIONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </nav>
         </aside>
 
