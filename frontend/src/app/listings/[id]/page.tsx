@@ -94,6 +94,7 @@ export default function ListingDetailPage() {
 
   const isModerator = isAuthenticated && user?.role === "moderator";
   const canManageListing = isAuthenticated && (isModerator || user?.id === listing.userId);
+  const canDeleteListing = canManageListing;
 
   async function handleDeleteListing(): Promise<void> {
     setDeleting(true);
@@ -123,7 +124,7 @@ export default function ListingDetailPage() {
             </Button>
           </Link>
         )}
-        {isModerator && (
+        {canDeleteListing && (
           <Button
             variant="outline"
             size="sm"
