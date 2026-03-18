@@ -263,7 +263,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
       }
-      if (existing.status !== "draft") {
+      if (!isModerator && existing.status !== "draft") {
         return reply.status(400).send({
           success: false,
           message: "Удалить можно только объект со статусом «Черновик»",
@@ -290,7 +290,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Объект не найден" });
       }
-      if (existing.status === "completed") {
+      if (!isModerator && existing.status === "completed") {
         return reply.status(400).send({ success: false, message: "Завершённый объект нельзя редактировать" });
       }
 

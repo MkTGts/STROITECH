@@ -21,13 +21,8 @@ async function _seedCategories(): Promise<void> {
   ];
 
   for (const cat of categories) {
-    const parent = await prisma.category.upsert({
-      where: { id: 0 },
-      update: {},
-      create: { name: cat.name, type: cat.type },
-    });
-
-    const parentRecord = await prisma.category.findFirst({ where: { name: cat.name, type: cat.type } })
+    const parentRecord =
+      await prisma.category.findFirst({ where: { name: cat.name, type: cat.type, parentId: null } })
       ?? await prisma.category.create({ data: { name: cat.name, type: cat.type } });
 
     for (const childName of cat.children) {

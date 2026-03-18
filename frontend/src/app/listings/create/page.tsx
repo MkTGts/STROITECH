@@ -17,6 +17,44 @@ import { toast } from "sonner";
 
 type Category = { id: number; name: string; type: string; children?: Category[] };
 
+const ALLOWED_LISTING_CATEGORIES: Array<{ name: string; type: string; children: string[] }> = [
+  {
+    name: "Строители",
+    type: "builders",
+    children: ["Бригады", "Отделочники", "Электрики", "Сантехники", "Кровельщики", "Фасадчики", "Прочее"],
+  },
+  {
+    name: "Материалы",
+    type: "materials",
+    children: ["Кирпич и блоки", "Бетон и цемент", "Пиломатериалы", "Кровельные материалы", "Отделочные материалы", "Инженерные системы", "Прочее"],
+  },
+  {
+    name: "Земля и недвижимость",
+    type: "land",
+    children: ["Участки", "Дома", "Коммерческая недвижимость", "Прочее"],
+  },
+  {
+    name: "Техника",
+    type: "equipment",
+    children: ["Экскаваторы", "Краны", "Самосвалы", "Бетононасосы", "Леса и опалубка", "Инструмент", "Прочее"],
+  },
+];
+
+function normalizeListingCategories(raw: Category[]): Category[] {
+  return ALLOWED_LISTING_CATEGORIES.map((allowed) => {
+    const parents = raw.filter((c) => c.type === allowed.type && c.name === allowed.name);
+    const parent = parents[0];
+
+    const childrenPool = parents.flatMap((p) => p.children || []);
+    const children = allowed.children
+      .map((childName) => childrenPool.find((c) => c.name === childName) || null)
+      .filter((c): c is Category => Boolean(c))
+      .reduce<Category[]>((acc, c) => (acc.some((x) => x.name === c.name) ? acc : [...acc, c]), []);
+
+    return { id: parent?.id ?? -1, name: allowed.name, type: allowed.type, children };
+  }).filter((c) => c.id !== -1);
+}
+
 export default function CreateListingPage() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -37,7 +75,7 @@ export default function CreateListingPage() {
       router.push("/auth/login");
       return;
     }
-    api<any>("/categories").then((res) => setCategories(res.data));
+    api<any>("/categories").then((res) => setCategories(normalizeListingCategories(res.data)));
   }, [isAuthenticated, router]);
 
   function updateField(field: string, value: string) {
