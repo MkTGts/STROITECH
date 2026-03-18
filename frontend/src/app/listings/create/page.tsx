@@ -26,6 +26,7 @@ export default function CreateListingPage() {
     title: "",
     description: "",
     categoryId: "",
+    parentCategoryId: "",
     region: "",
     price: "",
     photos: [] as string[],
@@ -63,6 +64,10 @@ export default function CreateListingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.categoryId) {
+      toast.error("Выберите категорию и подкатегорию");
+      return;
+    }
     setLoading(true);
     try {
       await api("/listings", {
@@ -85,9 +90,8 @@ export default function CreateListingPage() {
     }
   }
 
-  const allSubcategories = categories.flatMap((cat) =>
-    (cat.children || []).map((child) => ({ ...child, parentName: cat.name })),
-  );
+  const selectedParent = categories.find((c) => String(c.id) === form.parentCategoryId) || null;
+  const subcategories = selectedParent?.children || [];
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -105,12 +109,37 @@ export default function CreateListingPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label>Категория</Label>
-              <Select value={form.categoryId} onValueChange={(v) => updateField("categoryId", v)}>
+              <Select
+                value={form.parentCategoryId}
+                onValueChange={(v) => {
+                  setForm((prev) => ({ ...prev, parentCategoryId: v, categoryId: "" }));
+                }}
+              >
                 <SelectTrigger className="w-full"><SelectValue placeholder="Выберите категорию" /></SelectTrigger>
                 <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                  {allSubcategories.map((cat) => (
+                  {categories.map((cat) => (
                     <SelectItem key={cat.id} value={String(cat.id)}>
-                      {cat.parentName} → {cat.name}
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Подкатегория</Label>
+              <Select
+                value={form.categoryId}
+                onValueChange={(v) => updateField("categoryId", v)}
+                disabled={!form.parentCategoryId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={form.parentCategoryId ? "Выберите подкатегорию" : "Сначала выберите категорию"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                  {subcategories.map((sub) => (
+                    <SelectItem key={sub.id} value={String(sub.id)}>
+                      {sub.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -31,6 +31,7 @@ export default function EditListingPage() {
     title: "",
     description: "",
     categoryId: "",
+    parentCategoryId: "",
     region: "",
     price: "",
     photos: [] as string[],
@@ -57,17 +58,20 @@ export default function EditListingPage() {
     }
     if (formInitialized) return;
     const categoryId = listing.categoryId ?? listing.category?.id;
+    const parentCategoryId =
+      categories.find((p) => (p.children || []).some((c) => c.id === categoryId))?.id ?? null;
     const region = listing.region ?? "";
     setForm({
       title: listing.title ?? "",
       description: listing.description ?? "",
       categoryId: categoryId != null ? String(categoryId) : "",
+      parentCategoryId: parentCategoryId != null ? String(parentCategoryId) : "",
       region: typeof region === "string" ? region : "",
       price: listing.price != null ? String(listing.price) : "",
       photos: Array.isArray(listing.photos) ? listing.photos : [],
     });
     setFormInitialized(true);
-  }, [listing, id, user?.id, isLoading, formInitialized, router]);
+  }, [listing, id, user?.id, isLoading, formInitialized, router, categories]);
 
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -92,6 +96,10 @@ export default function EditListingPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.categoryId) {
+      toast.error("Выберите категорию и подкатегорию");
+      return;
+    }
     setSaving(true);
     try {
       await api(`/listings/${id}`, {
@@ -114,9 +122,8 @@ export default function EditListingPage() {
     }
   }
 
-  const allSubcategories = categories.flatMap((cat) =>
-    (cat.children || []).map((child) => ({ ...child, parentName: cat.name })),
-  );
+  const selectedParent = categories.find((c) => String(c.id) === form.parentCategoryId) || null;
+  const subcategories = selectedParent?.children || [];
 
   if (loading || !listing) {
     return (
@@ -146,14 +153,39 @@ export default function EditListingPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label>Категория</Label>
-              <Select value={form.categoryId} onValueChange={(v) => updateField("categoryId", v)}>
+              <Select
+                value={form.parentCategoryId}
+                onValueChange={(v) => {
+                  setForm((prev) => ({ ...prev, parentCategoryId: v, categoryId: "" }));
+                }}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Выберите категорию" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                  {allSubcategories.map((cat) => (
+                  {categories.map((cat) => (
                     <SelectItem key={cat.id} value={String(cat.id)}>
-                      {cat.parentName} → {cat.name}
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Подкатегория</Label>
+              <Select
+                value={form.categoryId}
+                onValueChange={(v) => updateField("categoryId", v)}
+                disabled={!form.parentCategoryId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={form.parentCategoryId ? "Выберите подкатегорию" : "Сначала выберите категорию"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                  {subcategories.map((sub) => (
+                    <SelectItem key={sub.id} value={String(sub.id)}>
+                      {sub.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
