@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Send, ArrowLeft, MessageCircle, Check, CheckCheck, Paperclip } from "lucide-react";
+import { Send, ArrowLeft, MessageCircle, Check, CheckCheck, Paperclip, LifeBuoy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/store";
 import { useWsEvent } from "@/lib/hooks";
 import { sendWsMessage } from "@/lib/ws";
@@ -15,9 +16,17 @@ import { toast } from "sonner";
 
 type ConversationItem = {
   id: string;
-  participant: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  participant: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    companyName: string | null;
+    role?: string | null;
+  };
   lastMessage: { content: string; createdAt: string } | null;
   unreadCount: number;
+  contextType?: "listing" | "object" | "profile";
+  contextId?: string | null;
 };
 
 type MessageItem = {
@@ -26,6 +35,7 @@ type MessageItem = {
   content: string;
   isRead: boolean;
   createdAt: string;
+  conversationId?: string;
 };
 
 const BOT_CONVERSATION_ID = "assistant-bot";
@@ -65,6 +75,8 @@ export function ChatPageClient() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/auth/login");
@@ -100,38 +112,83 @@ export function ChatPageClient() {
   }
 
   useWsEvent("new_message", (payload) => {
+    // обычный диалог: сразу добавляем сообщение и отправляем событие "прочитано"
     if (payload.conversationId === activeConvId) {
       setMessages((prev) =>
         [...prev, payload as MessageItem].slice().sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         ),
       );
       sendWsMessage("message_read", {
         conversationId: activeConvId,
         recipientId: payload.senderId,
       });
+    } else if (activeConvId === SUPPORT_CONVERSATION_ID) {
+      // если открыт чат техподдержки и прилетело новое сообщение
+      // (из одного из служебных диалогов с модераторами) — перезагружаем ленту
+      void loadMessages(SUPPORT_CONVERSATION_ID);
     }
+
+    // обновляем список диалогов и бейджи непрочитанных
     void loadConversations();
   });
 
   useWsEvent("message_read", (payload) => {
     // если собеседник прочитал сообщения в текущем диалоге — отмечаем их как прочитанные
-    if (payload.conversationId === activeConvId && user) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.senderId === user.id ? { ...m, isRead: true } : m,
-        ),
-      );
-      void loadConversations();
+    if (user) {
+      if (payload.conversationId === activeConvId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === user.id ? { ...m, isRead: true } : m,
+          ),
+        );
+        void loadConversations();
+      } else if (activeConvId === SUPPORT_CONVERSATION_ID) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.senderId === user.id &&
+            m.conversationId === payload.conversationId
+              ? { ...m, isRead: true }
+              : m,
+          ),
+        );
+      }
     }
   });
 
   async function loadConversations(): Promise<void> {
     try {
-      const res = await api<any>("/chat/conversations");
-      const data = res.data as ConversationItem[];
+      const [convRes, supportUnreadRes] = await Promise.allSettled([
+        api<any>("/chat/conversations"),
+        api<any>("/chat/support/unread-count"),
+      ]);
+
+      if (convRes.status !== "fulfilled") return;
+
+      const res = convRes.value;
+      const data = res.data as (ConversationItem & {
+        contextType?: string;
+        contextId?: string | null;
+      })[];
+
+      let supportUnreadCount = 0;
+      if (supportUnreadRes.status === "fulfilled") {
+        const raw = supportUnreadRes.value.data as { count?: number };
+        supportUnreadCount = typeof raw.count === "number" ? raw.count : 0;
+      }
+
       const botConv = data.find((c) => c.id === BOT_CONVERSATION_ID);
-      const others = data.filter((c) => c.id !== BOT_CONVERSATION_ID);
+
+      const filtered = data.filter((c) => {
+        if (c.id === BOT_CONVERSATION_ID) return false;
+        if (!user) return true;
+        const isSupportThread =
+          c.contextType === "profile" &&
+          c.contextId === user.id &&
+          c.participant?.role === "moderator";
+        return !isSupportThread;
+      });
 
       const supportConv: ConversationItem = {
         id: SUPPORT_CONVERSATION_ID,
@@ -142,12 +199,12 @@ export function ChatPageClient() {
           companyName: null,
         },
         lastMessage: null,
-        unreadCount: 0,
+        unreadCount: supportUnreadCount,
       };
 
       const ordered: ConversationItem[] = botConv
-        ? [botConv, supportConv, ...others]
-        : [supportConv, ...data];
+        ? [botConv, supportConv, ...filtered]
+        : [supportConv, ...filtered];
 
       setConversations(ordered);
     } catch {
@@ -184,7 +241,25 @@ export function ChatPageClient() {
       return;
     }
     if (convId === SUPPORT_CONVERSATION_ID) {
-      setMessages([SUPPORT_WELCOME_MESSAGE]);
+      try {
+        const res = await api<any>("/chat/support/messages");
+        const items = (res.data.items as MessageItem[] | undefined) ?? [];
+        if (!items.length) {
+          setMessages([SUPPORT_WELCOME_MESSAGE]);
+          return;
+        }
+        setMessages(
+          items
+            .slice()
+            .sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime(),
+            ),
+        );
+      } catch {
+        setMessages([SUPPORT_WELCOME_MESSAGE]);
+      }
       return;
     }
     try {
@@ -425,6 +500,25 @@ export function ChatPageClient() {
     setSending(false);
   }
 
+  async function handleDeleteConversation(): Promise<void> {
+    if (!deleteTargetId) return;
+    setDeleting(true);
+    try {
+      await api<any>(`/chat/conversations/${deleteTargetId}`, {
+        method: "DELETE",
+      });
+      setConversations((prev) => prev.filter((c) => c.id !== deleteTargetId));
+      if (activeConvId === deleteTargetId) {
+        setActiveConvId(null);
+        setMessages([]);
+      }
+      setDeleteTargetId(null);
+    } catch {
+      // ignore
+    }
+    setDeleting(false);
+  }
+
   if (!isAuthenticated) return null;
 
   const isNewChat = searchParams.get("to") && !activeConvId;
@@ -462,12 +556,20 @@ export function ChatPageClient() {
                 )}
               >
                 <Avatar className="h-10 w-10 shrink-0">
-                  {conv.participant.avatarUrl ? (
-                    <AvatarImage src={conv.participant.avatarUrl} alt={conv.participant.name} />
-                  ) : null}
-                  <AvatarFallback className="bg-primary/10 text-primary">
-                    {conv.participant.name.charAt(0)}
-                  </AvatarFallback>
+                  {conv.id === SUPPORT_CONVERSATION_ID ? (
+                    <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                      <LifeBuoy className="h-5 w-5" />
+                    </AvatarFallback>
+                  ) : (
+                    <>
+                      {conv.participant.avatarUrl ? (
+                        <AvatarImage src={conv.participant.avatarUrl} alt={conv.participant.name} />
+                      ) : null}
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {conv.participant.name.charAt(0)}
+                      </AvatarFallback>
+                    </>
+                  )}
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
@@ -500,26 +602,39 @@ export function ChatPageClient() {
       >
         {activeConvId || isNewChat ? (
           <>
-            <div className="flex h-14 items-center gap-3 border-b px-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="md:hidden"
-                onClick={() => {
-                  setActiveConvId(null);
-                  router.replace("/chat");
-                }}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              {activeConvId && (
-                <p className="font-semibold">
-                  {conversations.find((c) => c.id === activeConvId)?.participant.companyName ||
-                    conversations.find((c) => c.id === activeConvId)?.participant.name ||
-                    "Диалог"}
-                </p>
+            <div className="flex h-14 items-center gap-3 border-b px-4 justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden"
+                  onClick={() => {
+                    setActiveConvId(null);
+                    router.replace("/chat");
+                  }}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                {activeConvId && (
+                  <p className="font-semibold">
+                    {conversations.find((c) => c.id === activeConvId)?.participant.companyName ||
+                      conversations.find((c) => c.id === activeConvId)?.participant.name ||
+                      "Диалог"}
+                  </p>
+                )}
+                {isNewChat && <p className="font-semibold">Новый диалог</p>}
+              </div>
+              {activeConvId && activeConvId !== BOT_CONVERSATION_ID && activeConvId !== SUPPORT_CONVERSATION_ID && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => setDeleteTargetId(activeConvId)}
+                  title="Удалить диалог"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               )}
-              {isNewChat && <p className="font-semibold">Новый диалог</p>}
             </div>
 
             <div ref={messagesViewportRef} className="flex-1 overflow-y-auto p-4">
@@ -666,6 +781,33 @@ export function ChatPageClient() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!deleteTargetId} onOpenChange={(open) => !open && !deleting && setDeleteTargetId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить диалог?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Переписка будет удалена только для вас. Продолжить?
+          </p>
+          <DialogFooter className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTargetId(null)}
+              disabled={deleting}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleDeleteConversation()}
+              disabled={deleting}
+            >
+              {deleting ? "Удаляем..." : "Удалить"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

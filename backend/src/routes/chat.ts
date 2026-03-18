@@ -38,8 +38,24 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         OR: [{ participant1Id: userId }, { participant2Id: userId }],
       },
       include: {
-        participant1: { select: { id: true, name: true, avatarUrl: true, companyName: true } },
-        participant2: { select: { id: true, name: true, avatarUrl: true, companyName: true } },
+        participant1: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            companyName: true,
+            role: true,
+          },
+        },
+        participant2: {
+          select: {
+            id: true,
+            name: true,
+            avatarUrl: true,
+            companyName: true,
+            role: true,
+          },
+        },
         messages: { take: 1, orderBy: { createdAt: "desc" } },
       },
       orderBy: { lastMessageAt: "desc" },
@@ -252,6 +268,28 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(201).send({ success: true, data: message });
   });
 
+  app.delete("/conversations/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+    const { id } = request.params as { id: string };
+
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id,
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+      },
+    });
+
+    if (!conversation) {
+      return reply.status(404).send({ success: false, message: "Диалог не найден" });
+    }
+
+    await prisma.conversation.delete({
+      where: { id },
+    });
+
+    return reply.status(200).send({ success: true });
+  });
+
   app.post("/support", async (request: FastifyRequest, reply: FastifyReply) => {
     const userId = getUserId(request);
     const body = supportSchema.parse(request.body);
@@ -335,6 +373,108 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     return reply.status(200).send({
       success: true,
       data: { delivered: true },
+    });
+  });
+
+  app.get("/support/messages", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+        contextType: "profile",
+        contextId: userId,
+      },
+      include: {
+        participant1: { select: { id: true, role: true as any } },
+        participant2: { select: { id: true, role: true as any } },
+        messages: {
+          orderBy: { createdAt: "asc" },
+        },
+      },
+      orderBy: { lastMessageAt: "asc" },
+    });
+
+    const messages = conversations
+      .filter((conv) => {
+        const other =
+          conv.participant1Id === userId ? conv.participant2 : conv.participant1;
+        return other && (other as any).role === "moderator";
+      })
+      .flatMap((conv) =>
+        conv.messages.map((m) => ({
+          id: m.id,
+          senderId: m.senderId,
+          content: m.content,
+          isRead: m.isRead,
+          createdAt: m.createdAt,
+          conversationId: conv.id,
+        })),
+      )
+      .sort(
+        (a, b) =>
+          (a.createdAt as Date).getTime() - (b.createdAt as Date).getTime(),
+      );
+
+    const conversationIds = conversations.map((c) => c.id);
+    if (conversationIds.length > 0) {
+      await prisma.message.updateMany({
+        where: {
+          conversationId: { in: conversationIds },
+          senderId: { not: userId },
+          isRead: false,
+        },
+        data: { isRead: true },
+      });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      data: { items: messages },
+    });
+  });
+
+  app.get("/support/unread-count", async (request: FastifyRequest, reply: FastifyReply) => {
+    const userId = getUserId(request);
+
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        OR: [{ participant1Id: userId }, { participant2Id: userId }],
+        contextType: "profile",
+        contextId: userId,
+      },
+      include: {
+        participant1: { select: { id: true, role: true as any } },
+        participant2: { select: { id: true, role: true as any } },
+      },
+    });
+
+    const moderatorConversationIds = conversations
+      .filter((conv) => {
+        const other =
+          conv.participant1Id === userId ? conv.participant2 : conv.participant1;
+        return other && (other as any).role === "moderator";
+      })
+      .map((conv) => conv.id);
+
+    if (moderatorConversationIds.length === 0) {
+      return reply.status(200).send({
+        success: true,
+        data: { count: 0 },
+      });
+    }
+
+    const count = await prisma.message.count({
+      where: {
+        conversationId: { in: moderatorConversationIds },
+        senderId: { not: userId },
+        isRead: false,
+      },
+    });
+
+    return reply.status(200).send({
+      success: true,
+      data: { count },
     });
   });
 

@@ -57,10 +57,15 @@ function _handleWsMessage(senderId: string, msg: { type: string; payload: any })
     case "message_read": {
       const target = clients.get(msg.payload.recipientId);
       if (target && target.socket.readyState === WebSocket.OPEN) {
-        target.socket.send(JSON.stringify({
-          type: "message_read",
-          payload: { conversationId: msg.payload.conversationId, readBy: senderId },
-        }));
+        target.socket.send(
+          JSON.stringify({
+            type: "message_read",
+            payload: {
+              conversationId: msg.payload.conversationId,
+              readBy: senderId,
+            },
+          }),
+        );
       }
       break;
     }
