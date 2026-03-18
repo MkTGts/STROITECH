@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 
@@ -26,6 +34,8 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api<any>(`/listings/${id}`)
@@ -85,6 +95,19 @@ export default function ListingDetailPage() {
   const isModerator = isAuthenticated && user?.role === "moderator";
   const canManageListing = isAuthenticated && (isModerator || user?.id === listing.userId);
 
+  async function handleDeleteListing(): Promise<void> {
+    setDeleting(true);
+    try {
+      await api(`/listings/${id}`, { method: "DELETE" });
+      setDeleteDialogOpen(false);
+      window.location.href = "/listings";
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-4 flex items-center gap-2">
@@ -99,6 +122,16 @@ export default function ListingDetailPage() {
               <Pencil className="h-4 w-4" /> Редактировать
             </Button>
           </Link>
+        )}
+        {isModerator && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-destructive hover:text-destructive"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            Удалить объявление
+          </Button>
         )}
       </div>
 
@@ -331,6 +364,25 @@ export default function ListingDetailPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent showCloseButton={true}>
+          <DialogHeader>
+            <DialogTitle>Удалить объявление?</DialogTitle>
+            <DialogDescription>
+              Объявление «{listing.title}» будет удалено безвозвратно. Это действие нельзя отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter showCloseButton={false}>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+              Отмена
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteListing} disabled={deleting}>
+              {deleting ? "Удаление..." : "Удалить объявление"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
