@@ -37,6 +37,8 @@ export function CookieConsent() {
             </div>
             <p className="text-sm text-muted-foreground">
               Сайт использует файлы cookie для работы сервиса, входа в аккаунт и улучшения вашего опыта.
+              Также применяется аналитика Яндекс.Метрика для сбора обезличенной статистики посещений, в том числе
+              карты кликов (clickmap) и Вебвизора (webvisor).
               Продолжая пользоваться сайтом, вы соглашаетесь с{" "}
               <Link href="/privacy" className="font-medium text-primary underline-offset-4 hover:underline">
                 использованием cookie
