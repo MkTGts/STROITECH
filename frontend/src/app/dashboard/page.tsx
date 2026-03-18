@@ -388,10 +388,10 @@ export default function DashboardPage() {
 
           <Card>
             <CardContent className="space-y-2 p-5">
-              <Link href="/listings/create">
+              <Link href={`/listings?userId=${user.id}`}>
                 <Button variant="outline" className="w-full justify-start gap-2"><LayoutGrid className="h-4 w-4" /> Мои объявления</Button>
               </Link>
-              <Link href="/objects">
+              <Link href={`/objects?userId=${user.id}`}>
                 <Button variant="outline" className="w-full justify-start gap-2"><Building2 className="h-4 w-4" /> Мои объекты</Button>
               </Link>
               <Link href="/chat">

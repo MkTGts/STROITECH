@@ -46,20 +46,25 @@ const createStageSchema = z.object({
  */
 export async function objectRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest) => {
-    const { page = "1", limit = "20", status, region } = request.query as Record<string, string>;
+    const { page = "1", limit = "20", status, region, userId: requestedUserId } = request.query as Record<string, string>;
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const currentUserId = getOptionalUserId(request);
     const role = request.user ? getUserRole(request) : null;
 
-    const baseWhere: Record<string, unknown> = region ? { region } : {};
+    const baseWhere: Record<string, unknown> = {
+      ...(region ? { region } : {}),
+      ...(requestedUserId ? { userId: requestedUserId } : {}),
+    };
     const isModerator = role === "moderator";
+    const canSeeDraftsForRequested =
+      isModerator || (currentUserId && (!requestedUserId || requestedUserId === currentUserId));
     const visibleWhere = isModerator
       ? { ...baseWhere }
       : { ...baseWhere, isVisible: true, status: { not: "draft" as const } };
     const draftWhere = isModerator
       ? { ...baseWhere }
-      : currentUserId
+      : canSeeDraftsForRequested && currentUserId
         ? { ...baseWhere, userId: currentUserId, status: "draft" as const }
         : null;
 
@@ -96,7 +101,7 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       };
     }
 
-    if (!currentUserId && !isModerator) {
+    if ((!currentUserId || !canSeeDraftsForRequested) && !isModerator) {
       const [items, total] = await Promise.all([
         prisma.constructionObject.findMany({
           where: visibleWhere,

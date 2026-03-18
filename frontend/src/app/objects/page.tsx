@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, MessageCircle, Building2, Clock, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,9 @@ const STATUS_TABS = [
 ];
 
 export default function ObjectsPage() {
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
+  const userIdFilter = searchParams.get("userId");
   const [objects, setObjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
@@ -53,12 +56,13 @@ export default function ObjectsPage() {
       const params: Record<string, string | number> = { page, limit: 12 };
       if (activeTab !== "all") params.status = activeTab;
       if (region !== "all") params.region = region;
+      if (userIdFilter) params.userId = userIdFilter;
       const res = await api<any>("/objects", { params });
       setObjects(res.data.items);
       setTotalPages(res.data.totalPages);
     } catch { /* ignore */ }
     setLoading(false);
-  }, [page, activeTab, region]);
+  }, [page, activeTab, region, userIdFilter]);
 
   useEffect(() => {
     fetchObjects();

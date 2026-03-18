@@ -37,6 +37,7 @@ const TABS = [
 export function ListingsPageClient() {
   const searchParams = useSearchParams();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userIdFilter = searchParams.get("userId");
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -53,6 +54,7 @@ export function ListingsPageClient() {
       if (activeTab !== "all") params.categoryType = activeTab;
       if (debouncedSearch) params.search = debouncedSearch;
       if (region !== "all") params.region = region;
+      if (userIdFilter) params.userId = userIdFilter;
 
       const res = await api<any>("/listings", { params });
       setListings(res.data.items);
@@ -62,7 +64,7 @@ export function ListingsPageClient() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch, page, region]);
+  }, [activeTab, debouncedSearch, page, region, userIdFilter]);
 
   useEffect(() => {
     void fetchListings();
