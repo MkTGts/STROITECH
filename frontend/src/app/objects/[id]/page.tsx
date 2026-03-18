@@ -90,7 +90,8 @@ export default function ObjectDetailPage() {
     fetchObject().finally(() => setLoading(false));
   }, [id]);
 
-  const isModerator = isAuthenticated && user?.role === "moderator";
+  const roleFromToken = isAuthenticated ? _getRoleFromAccessToken() : null;
+  const isModerator = isAuthenticated && (user?.role === "moderator" || roleFromToken === "moderator");
   const isOwner = isAuthenticated && user?.id === object?.userId;
   const canManageObject = isAuthenticated && (isModerator || isOwner);
 
@@ -549,4 +550,21 @@ export default function ObjectDetailPage() {
       </Dialog>
     </div>
   );
+}
+
+function _getRoleFromAccessToken(): string | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const token = window.localStorage.getItem("accessToken");
+    if (!token) return null;
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "===".slice((payload.length + 3) % 4);
+    const json = atob(padded);
+    const parsed = JSON.parse(json);
+    return typeof parsed?.role === "string" ? parsed.role : null;
+  } catch {
+    return null;
+  }
 }
