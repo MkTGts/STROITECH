@@ -23,7 +23,7 @@ type Listing = {
   isPromoted: boolean;
   createdAt: string;
   user?: { id: string; name: string; companyName: string | null; avatarUrl: string | null; role: string };
-  category?: { id: number; name: string; type: string };
+  category?: { id: number; name: string; type: string; parent?: { id: number; name: string; type: string } | null };
 };
 
 const TABS = [

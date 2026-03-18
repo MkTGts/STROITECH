@@ -90,7 +90,9 @@ export default function ObjectDetailPage() {
     fetchObject().finally(() => setLoading(false));
   }, [id]);
 
+  const isModerator = isAuthenticated && user?.role === "moderator";
   const isOwner = isAuthenticated && user?.id === object?.userId;
+  const canManageObject = isAuthenticated && (isModerator || isOwner);
 
   function startEditStage(stage: any) {
     setEditingStageId(stage.id);
@@ -145,7 +147,7 @@ export default function ObjectDetailPage() {
     }
   }
 
-  const canAddStage = isOwner && (object?.status === "draft" || object?.status === "active");
+  const canAddStage = canManageObject && (object?.status === "draft" || object?.status === "active");
   const existingStageTypes = object?.stages?.map((s: any) => s.stageType) ?? [];
   const availableStageTypes = Object.keys(STAGE_LABELS).filter((t) => !existingStageTypes.includes(t));
 
@@ -223,7 +225,7 @@ export default function ObjectDetailPage() {
             <ArrowLeft className="h-4 w-4" /> К объектам
           </Button>
         </Link>
-        {isAuthenticated && user?.id === object.userId && (
+        {canManageObject && (
           <div className="flex flex-wrap items-center gap-2">
             {object.status === "draft" && (
               <Link href={`/objects/${id}/edit`}>
@@ -244,7 +246,7 @@ export default function ObjectDetailPage() {
                 </Button>
               </Link>
             )}
-            {object.status === "draft" && (
+            {(isModerator || object.status === "draft") && (
               <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteDialogOpen(true)}>
                 <Trash2 className="h-4 w-4" /> Удалить объект
               </Button>
@@ -323,7 +325,7 @@ export default function ObjectDetailPage() {
                           )}
                         </div>
                       </div>
-                      {isOwner && object.status !== "completed" && !isEditing && (
+                      {canManageObject && object.status !== "completed" && !isEditing && (
                         <Button variant="ghost" size="sm" className="gap-1 shrink-0" onClick={() => startEditStage(stage)}>
                           <Pencil className="h-3.5 w-3.5" /> Редактировать этап
                         </Button>

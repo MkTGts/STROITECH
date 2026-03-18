@@ -82,6 +82,9 @@ export default function ListingDetailPage() {
     );
   }
 
+  const isModerator = isAuthenticated && user?.role === "moderator";
+  const canManageListing = isAuthenticated && (isModerator || user?.id === listing.userId);
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-4 flex items-center gap-2">
@@ -90,7 +93,7 @@ export default function ListingDetailPage() {
             <ArrowLeft className="h-4 w-4" /> К объявлениям
           </Button>
         </Link>
-        {isAuthenticated && user?.id === listing.userId && (
+        {canManageListing && (
           <Link href={`/listings/${id}/edit`}>
             <Button variant="outline" size="sm" className="gap-2">
               <Pencil className="h-4 w-4" /> Редактировать
@@ -179,7 +182,11 @@ export default function ListingDetailPage() {
               {listing.isPromoted && (
                 <Badge className="gap-1 bg-amber-500 text-white"><Star className="h-3 w-3" /> Продвинуто</Badge>
               )}
-              {listing.category && <Badge variant="secondary">{listing.category.name}</Badge>}
+              {listing.category && (
+                <Badge variant="secondary">
+                  {(listing.category.parent?.name ? `${listing.category.parent.name} → ` : "") + listing.category.name}
+                </Badge>
+              )}
             </div>
             <h1 className="mt-3 text-2xl font-bold">{listing.title}</h1>
             {listing.region && (

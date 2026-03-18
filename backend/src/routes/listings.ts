@@ -40,7 +40,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
         where,
         include: {
           user: { select: { id: true, name: true, companyName: true, avatarUrl: true, role: true } },
-          category: { select: { id: true, name: true, type: true } },
+          category: { select: { id: true, name: true, type: true, parent: { select: { id: true, name: true, type: true } } } },
         },
         orderBy: isPromotedFirst,
         skip,
@@ -61,7 +61,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
       where: { id },
       include: {
         user: { select: { id: true, name: true, companyName: true, avatarUrl: true, role: true, description: true } },
-        category: true,
+        category: { include: { parent: true } },
       },
     });
 
@@ -98,7 +98,7 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
         data: { ...body, userId },
         include: {
           user: { select: { id: true, name: true, companyName: true, avatarUrl: true, role: true } },
-          category: true,
+          category: { include: { parent: true } },
         },
       });
 

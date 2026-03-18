@@ -19,7 +19,7 @@ type ListingCardProps = {
     isPromoted: boolean;
     createdAt: string;
     user?: { id: string; name: string; companyName: string | null; avatarUrl: string | null; role: string };
-    category?: { id: number; name: string; type: string };
+    category?: { id: number; name: string; type: string; parent?: { id: number; name: string; type: string } | null };
   };
 };
 
@@ -56,7 +56,7 @@ export function ListingCard({ listing }: ListingCardProps) {
         )}
         {listing.category && (
           <Badge variant="secondary" className="absolute right-2 top-2">
-            {listing.category.name}
+            {(listing.category.parent?.name ? `${listing.category.parent.name} → ` : "") + listing.category.name}
           </Badge>
         )}
       </Link>

@@ -88,9 +88,11 @@ export default function EditListingPage() {
     ]).catch(() => setListing(null)).finally(() => setLoading(false));
   }, [id, isAuthenticated, isLoading, router]);
 
+  const isModerator = isAuthenticated && user?.role === "moderator";
+
   useEffect(() => {
     if (isLoading || !listing) return;
-    if (user?.id !== listing.userId) {
+    if (!isModerator && user?.id !== listing.userId) {
       router.replace(`/listings/${id}`);
       return;
     }
@@ -109,7 +111,7 @@ export default function EditListingPage() {
       photos: Array.isArray(listing.photos) ? listing.photos : [],
     });
     setFormInitialized(true);
-  }, [listing, id, user?.id, isLoading, formInitialized, router, categories]);
+  }, [listing, id, user?.id, isLoading, formInitialized, router, categories, isModerator]);
 
   function updateField(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -171,7 +173,7 @@ export default function EditListingPage() {
     );
   }
 
-  if (user?.id !== listing.userId) {
+  if (!isModerator && user?.id !== listing.userId) {
     return null;
   }
 

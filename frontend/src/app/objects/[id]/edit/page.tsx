@@ -43,9 +43,11 @@ export default function EditObjectPage() {
       .finally(() => setLoading(false));
   }, [id, isAuthenticated, isLoading, router]);
 
+  const isModerator = isAuthenticated && user?.role === "moderator";
+
   useEffect(() => {
     if (isLoading || !object) return;
-    if (user?.id !== object.userId) {
+    if (!isModerator && user?.id !== object.userId) {
       router.replace(`/objects/${id}`);
       return;
     }
@@ -56,7 +58,7 @@ export default function EditObjectPage() {
       region: object.region ?? "",
     });
     setFormInitialized(true);
-  }, [object, id, user?.id, isLoading, formInitialized, router]);
+  }, [object, id, user?.id, isLoading, formInitialized, router, isModerator]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,7 +105,7 @@ export default function EditObjectPage() {
     );
   }
 
-  if (user?.id !== object.userId) {
+  if (!isModerator && user?.id !== object.userId) {
     return null;
   }
 
