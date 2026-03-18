@@ -20,10 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
-import { api } from "@/lib/api";
+import { api, uploadAvatar } from "@/lib/api";
 import { toast } from "sonner";
 import { RUSSIAN_REGIONS } from "@/constants/regions";
 
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [changingPassword, setChangingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -136,6 +137,41 @@ export default function DashboardPage() {
     } catch { /* ignore */ }
   }
 
+  async function handleAvatarSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Выберите изображение");
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const uploaded = await uploadAvatar(file);
+      await api("/users/profile", { method: "PUT", body: JSON.stringify({ avatarUrl: uploaded.url }) });
+      await fetchUser();
+      toast.success("Аватарка обновлена");
+    } catch (err: any) {
+      toast.error(err?.message || "Не удалось обновить аватарку");
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleDeleteAvatar() {
+    if (!user?.avatarUrl) return;
+    setUploadingAvatar(true);
+    try {
+      await api("/users/profile", { method: "PUT", body: JSON.stringify({ avatarUrl: null }) });
+      await fetchUser();
+      toast.success("Аватарка удалена");
+    } catch (err: any) {
+      toast.error(err?.message || "Не удалось удалить аватарку");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   if (!isAuthenticated || !user) return null;
 
   return (
@@ -154,6 +190,47 @@ export default function DashboardPage() {
             <CardContent>
               {editMode ? (
                 <div className="space-y-4">
+                  <div>
+                    <Label>Аватар</Label>
+                    <div className="mt-2 flex items-center gap-3">
+                      <Avatar className="h-16 w-16">
+                        {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
+                        <AvatarFallback className="bg-primary/10 text-xl text-primary">
+                          {user.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          id="avatar-upload"
+                          onChange={handleAvatarSelected}
+                          disabled={uploadingAvatar}
+                        />
+                        <label htmlFor="avatar-upload">
+                          <Button asChild variant="outline" size="sm" disabled={uploadingAvatar}>
+                            <span>{uploadingAvatar ? "Загрузка..." : "Загрузить аватарку"}</span>
+                          </Button>
+                        </label>
+                        {user.avatarUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleDeleteAvatar}
+                            disabled={uploadingAvatar}
+                            className="justify-start text-destructive"
+                          >
+                            Удалить аватарку
+                          </Button>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Форматы: JPEG, PNG, WebP, GIF.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <div>
                     <Label>Имя / Название</Label>
                     <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
@@ -195,6 +272,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="flex items-start gap-4">
                   <Avatar className="h-16 w-16">
+                    {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
                     <AvatarFallback className="bg-primary/10 text-xl text-primary">
                       {user.name.charAt(0)}
                     </AvatarFallback>

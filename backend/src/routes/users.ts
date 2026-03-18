@@ -9,7 +9,7 @@ const updateProfileSchema = z.object({
   region: z.string().min(2).optional(),
   companyName: z.string().optional(),
   description: z.string().optional(),
-  avatarUrl: z.string().url().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
 });
 
 const managerSchema = z.object({
