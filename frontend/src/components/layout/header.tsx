@@ -22,10 +22,10 @@ import { useNotificationStore } from "@/lib/store";
 import { useState } from "react";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Главная", icon: Building2 },
+  { href: "/", label: "Главная", icon: HardHat },
   { href: "/listings", label: "Объявления", icon: LayoutGrid },
   { href: "/profiles", label: "Участники", icon: Users },
-  { href: "/objects", label: "Объекты", icon: HardHat },
+  { href: "/objects", label: "Объекты", icon: Building2 },
   { href: "/chat", label: "Чат", icon: MessageCircle },
 ];
 
