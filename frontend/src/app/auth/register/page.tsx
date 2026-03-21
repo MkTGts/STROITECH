@@ -100,7 +100,7 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="name">Имя / Название</Label>
+                  <Label htmlFor="name">Имя и фамилия</Label>
                   <Input
                     id="name"
                     placeholder="Иван Иванов"

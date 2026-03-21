@@ -185,9 +185,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       data: {
         userId: recipientId,
         type: "message",
-        content: sender
-          ? `Новое сообщение от ${sender.companyName || sender.name}`
-          : "Новое сообщение в чате",
+        content: sender ? `Новое сообщение от ${sender.name}` : "Новое сообщение в чате",
         metadata: { conversationId: conversation.id, messageId: message.id },
       },
     });
@@ -281,9 +279,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
       data: {
         userId: recipientId,
         type: "message",
-        content: sender
-          ? `Новое сообщение от ${sender.companyName || sender.name}`
-          : "Новое сообщение в чате",
+        content: sender ? `Новое сообщение от ${sender.name}` : "Новое сообщение в чате",
         metadata: { conversationId: conversation.id, messageId: message.id },
       },
     });
@@ -388,7 +384,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         data: {
           userId: mod.id,
           type: "message",
-          content: `ТП_${sender.companyName || sender.name}: новое сообщение в техподдержку`,
+          content: `ТП_${sender.name}: новое сообщение в техподдержку`,
           metadata: { conversationId: conversation.id, messageId: message.id },
         },
       });

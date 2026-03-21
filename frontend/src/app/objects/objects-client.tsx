@@ -225,12 +225,7 @@ export function ObjectsPageClient() {
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                {obj.user.companyName && (
-                                  <p className="truncate text-sm font-medium">{obj.user.companyName}</p>
-                                )}
-                                <p className={`truncate text-sm ${obj.user.companyName ? "text-muted-foreground" : "font-medium"}`}>
-                                  {obj.user.name}
-                                </p>
+                                <p className="truncate text-sm font-medium">{obj.user.name}</p>
                               </div>
                             </div>
                             {isAuthenticated && (
