@@ -98,6 +98,7 @@ model User {
   feedPosts             FeedPost[]
   feedPostLikes         FeedPostLike[]
   feedComments          FeedComment[]
+  feedCommentLikes      FeedCommentLike[]
   feedPostViews         FeedPostView[]
 
   @@map("users")
@@ -158,16 +159,35 @@ model FeedComment {
   id        String   @id @default(uuid()) @db.Uuid
   postId    String   @map("post_id") @db.Uuid
   authorId  String   @map("author_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
   body      String   @db.Text
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post    FeedPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent  FeedComment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies FeedComment[]     @relation("CommentReplies")
+  likes   FeedCommentLike[]
 
   @@index([postId])
   @@index([postId, createdAt])
+  @@index([parentId])
   @@map("feed_comments")
+}
+
+model FeedCommentLike {
+  id        String   @id @default(uuid()) @db.Uuid
+  commentId String   @map("comment_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  comment FeedComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@map("feed_comment_likes")
 }
 
 model Manager {

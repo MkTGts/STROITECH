@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, MessageCircle, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, MessageCircle, Pencil, Reply, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,7 +26,8 @@ import { api, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { MarkdownBody } from "@/components/features/markdown-body";
 import { FeedLikeButton } from "@/components/features/feed-like-button";
-import type { FeedPostDetail } from "shared";
+import { FeedCommentLikeButton } from "@/components/features/feed-comment-like-button";
+import type { FeedComment, FeedPostDetail } from "shared";
 import { canManageFeedPost } from "../lenta-client";
 
 const COMMENTS_LIMIT = 50;
@@ -41,6 +42,22 @@ function formatFeedDate(iso: string) {
   } catch {
     return iso;
   }
+}
+
+function patchCommentLikes(
+  nodes: FeedComment[],
+  commentId: string,
+  next: { likeCount: number; likedByMe: boolean },
+): FeedComment[] {
+  return nodes.map((node) => {
+    if (node.id === commentId) {
+      return { ...node, likeCount: next.likeCount, likedByMe: next.likedByMe };
+    }
+    if (node.replies.length > 0) {
+      return { ...node, replies: patchCommentLikes(node.replies, commentId, next) };
+    }
+    return node;
+  });
 }
 
 export function LentaPostClient({ id }: { id: string }) {
@@ -59,6 +76,7 @@ function LentaPostInner({ id }: { id: string }) {
   const [commentsRefreshTick, setCommentsRefreshTick] = useState(0);
   const hasLoadedArticleRef = useRef(false);
   const [newCommentBody, setNewCommentBody] = useState("");
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
@@ -136,7 +154,7 @@ function LentaPostInner({ id }: { id: string }) {
     try {
       const data = await fetchPostDetail(page);
       let next = data;
-      if (next.comments.length === 0 && page > 1 && next.commentCount > 0) {
+      if (next.comments.length === 0 && page > 1 && next.rootCommentsTotal > 0) {
         const prevPage = page - 1;
         setCommentsPage(prevPage);
         next = await fetchPostDetail(prevPage);
@@ -152,16 +170,24 @@ function LentaPostInner({ id }: { id: string }) {
     e.preventDefault();
     if (!post || !newCommentBody.trim() || postingComment) return;
     setPostingComment(true);
+    const replyParent = replyTo;
     try {
       await api(`/feed/posts/${post.id}/comments`, {
         method: "POST",
-        body: JSON.stringify({ body: newCommentBody.trim() }),
+        body: JSON.stringify({
+          body: newCommentBody.trim(),
+          ...(replyParent ? { parentId: replyParent.id } : {}),
+        }),
       });
-      toast.success("Комментарий опубликован");
+      toast.success(replyParent ? "Ответ опубликован" : "Комментарий опубликован");
       setNewCommentBody("");
-      const nextCount = post.commentCount + 1;
-      const lastPage = Math.max(1, Math.ceil(nextCount / COMMENTS_LIMIT));
-      setCommentsPage(lastPage);
+      setReplyTo(null);
+      const isReply = Boolean(replyParent);
+      if (!isReply) {
+        const nextRoots = post.rootCommentsTotal + 1;
+        const lastPage = Math.max(1, Math.ceil(nextRoots / COMMENTS_LIMIT));
+        setCommentsPage(lastPage);
+      }
       setCommentsRefreshTick((t) => t + 1);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Не удалось отправить комментарий";
@@ -242,6 +268,103 @@ function LentaPostInner({ id }: { id: string }) {
     } finally {
       setDeletingPost(false);
     }
+  }
+
+  function renderCommentTree(comment: FeedComment, depth: number): React.ReactNode {
+    const canMod = canModifyComment(comment);
+
+    return (
+      <li key={comment.id} className={depth > 0 ? "mt-3" : undefined}>
+        <div className="rounded-lg border bg-card/50 p-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Avatar className="h-7 w-7">
+                {comment.author.avatarUrl ? <AvatarImage src={comment.author.avatarUrl} alt="" /> : null}
+                <AvatarFallback className="text-xs">{comment.author.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium">{comment.author.name}</span>
+              <time className="text-xs text-muted-foreground" dateTime={comment.createdAt}>
+                {formatFeedDate(comment.createdAt)}
+              </time>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <FeedCommentLikeButton
+                commentId={comment.id}
+                likeCount={comment.likeCount}
+                likedByMe={comment.likedByMe}
+                isAuthenticated={isAuthenticated}
+                onSync={(next) =>
+                  setPost((p) => (p ? { ...p, comments: patchCommentLikes(p.comments, comment.id, next) } : p))
+                }
+              />
+              {isAuthenticated && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1 px-2 text-xs"
+                  onClick={() => setReplyTo({ id: comment.id, name: comment.author.name })}
+                >
+                  <Reply className="h-3.5 w-3.5" />
+                  Ответить
+                </Button>
+              )}
+              {canMod && editingCommentId !== comment.id && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => startEdit(comment)}
+                    aria-label="Редактировать комментарий"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(comment)}
+                    aria-label="Удалить комментарий"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+          {editingCommentId === comment.id ? (
+            <div className="space-y-2">
+              <Textarea
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                disabled={savingEdit}
+                className="min-h-[80px]"
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" size="sm" onClick={() => saveEdit(comment.id)} disabled={savingEdit || !editDraft.trim()}>
+                  {savingEdit ? "Сохранение…" : "Сохранить"}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={cancelEdit} disabled={savingEdit}>
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="whitespace-pre-wrap text-sm text-foreground">{comment.body}</p>
+          )}
+        </div>
+        {comment.replies.length > 0 ? (
+          <ul className="ml-1 mt-2 space-y-1 border-l border-border/60 pl-3">
+            {comment.replies.map((ch) => renderCommentTree(ch, depth + 1))}
+          </ul>
+        ) : null}
+      </li>
+    );
   }
 
   if (loading && !post) {
@@ -403,19 +526,37 @@ function LentaPostInner({ id }: { id: string }) {
 
         {isAuthenticated ? (
           <form onSubmit={handleSubmitComment} className="mb-8 space-y-3">
+            {replyTo ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                <span>
+                  Ответ для <span className="font-medium">{replyTo.name}</span>
+                </span>
+                <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setReplyTo(null)}>
+                  Отменить ответ
+                </Button>
+              </div>
+            ) : null}
             <Textarea
-              placeholder="Написать комментарий…"
+              placeholder={replyTo ? `Ваш ответ для ${replyTo.name}…` : "Написать комментарий…"}
               value={newCommentBody}
               onChange={(e) => setNewCommentBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || (!e.ctrlKey && !e.metaKey)) return;
+                e.preventDefault();
+                if (postingComment || !newCommentBody.trim()) return;
+                e.currentTarget.form?.requestSubmit();
+              }}
               rows={4}
               maxLength={2000}
               disabled={postingComment}
               className="min-h-[100px] resize-y"
             />
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">{newCommentBody.length} / 2000</span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">
+                {newCommentBody.length} / 2000 · Ctrl+Enter или ⌘+Enter — отправить
+              </span>
               <Button type="submit" disabled={postingComment || !newCommentBody.trim()}>
-                {postingComment ? "Отправка…" : "Отправить"}
+                {postingComment ? "Отправка…" : replyTo ? "Отправить ответ" : "Отправить"}
               </Button>
             </div>
           </form>
@@ -432,81 +573,14 @@ function LentaPostInner({ id }: { id: string }) {
 
         {post.commentsTotalPages > 1 && (
           <p className="mb-2 text-sm text-muted-foreground">
-            Страница {post.commentsPage} из {post.commentsTotalPages}. Всего комментариев: {post.commentCount}.
-          </p>
-        )}
-        {post.commentsTotalPages === 1 && post.comments.length < post.commentCount && (
-          <p className="mb-2 text-sm text-muted-foreground">
-            Показано {post.comments.length} из {post.commentCount}.
+            Страница веток {post.commentsPage} из {post.commentsTotalPages}. Корневых комментариев:{" "}
+            {post.rootCommentsTotal}. Всего сообщений (с ответами): {post.commentCount}.
           </p>
         )}
         {post.comments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Пока нет комментариев.</p>
+          <p className="text-sm text-muted-foreground">Пока нет комментариев на этой странице.</p>
         ) : (
-          <ul className="space-y-4">
-            {post.comments.map((c) => (
-              <li key={c.id} className="rounded-lg border bg-card/50 p-4">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-7 w-7">
-                      {c.author.avatarUrl ? <AvatarImage src={c.author.avatarUrl} alt="" /> : null}
-                      <AvatarFallback className="text-xs">{c.author.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium">{c.author.name}</span>
-                    <time className="text-xs text-muted-foreground" dateTime={c.createdAt}>
-                      {formatFeedDate(c.createdAt)}
-                    </time>
-                  </div>
-                  {canModifyComment(c) && editingCommentId !== c.id && (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => startEdit(c)}
-                        aria-label="Редактировать комментарий"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(c)}
-                        aria-label="Удалить комментарий"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                {editingCommentId === c.id ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={editDraft}
-                      onChange={(e) => setEditDraft(e.target.value)}
-                      rows={4}
-                      maxLength={2000}
-                      disabled={savingEdit}
-                      className="min-h-[80px]"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" onClick={() => saveEdit(c.id)} disabled={savingEdit || !editDraft.trim()}>
-                        {savingEdit ? "Сохранение…" : "Сохранить"}
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" onClick={cancelEdit} disabled={savingEdit}>
-                        Отмена
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap text-sm text-foreground">{c.body}</p>
-                )}
-              </li>
-            ))}
-          </ul>
+          <ul className="space-y-4">{post.comments.map((c) => renderCommentTree(c, 0))}</ul>
         )}
         {post.commentsTotalPages > 1 && (
           <div className="mt-6 flex justify-center gap-2">
@@ -537,7 +611,7 @@ function LentaPostInner({ id }: { id: string }) {
           <DialogHeader>
             <DialogTitle>Удалить комментарий?</DialogTitle>
             <DialogDescription>
-              Это действие нельзя отменить. Текст комментария будет удалён навсегда.
+              Это действие нельзя отменить. Текст комментария и все ответы под ним будут удалены.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton={false}>

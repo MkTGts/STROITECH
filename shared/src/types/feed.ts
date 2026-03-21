@@ -23,16 +23,22 @@ export type FeedPostListItem = {
 
 export type FeedComment = {
   id: string;
+  parentId: string | null;
   body: string;
   createdAt: string;
   updatedAt: string;
   author: FeedAuthor;
+  likeCount: number;
+  likedByMe?: boolean;
+  replies: FeedComment[];
 };
 
 export type FeedPostDetail = FeedPostListItem & {
   body: string;
   status: string;
   likedByMe: boolean;
+  /** Число корневых комментариев (веток); пагинация по ним */
+  rootCommentsTotal: number;
   comments: FeedComment[];
   commentsPage: number;
   commentsLimit: number;

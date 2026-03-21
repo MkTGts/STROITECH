@@ -25,6 +25,7 @@ const commentIdParamsSchema = z.object({
 
 const createCommentBodySchema = z.object({
   body: z.string().trim().min(1).max(2000),
+  parentId: z.union([z.string().uuid(), z.null()]).optional(),
 });
 
 const updateCommentBodySchema = z.object({
@@ -39,6 +40,48 @@ const postDetailCommentsQuerySchema = z.object({
 
 function canModifyComment(authorId: string, userId: string, role: string): boolean {
   return authorId === userId || role === "moderator";
+}
+
+type CommentWithMeta = {
+  id: string;
+  parentId: string | null;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+  author: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  _count: { likes: number };
+};
+
+function buildCommentsByParentId(rows: CommentWithMeta[]): Map<string | null, CommentWithMeta[]> {
+  const map = new Map<string | null, CommentWithMeta[]>();
+  for (const row of rows) {
+    const key = row.parentId;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(row);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+  return map;
+}
+
+function serializeCommentBranch(
+  row: CommentWithMeta,
+  byParentId: Map<string | null, CommentWithMeta[]>,
+  likedIds: Set<string>,
+) {
+  const kids = byParentId.get(row.id) ?? [];
+  return {
+    id: row.id,
+    parentId: row.parentId,
+    body: row.body,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    author: row.author,
+    likeCount: row._count.likes,
+    likedByMe: likedIds.has(row.id),
+    replies: kids.map((k) => serializeCommentBranch(k, byParentId, likedIds)),
+  };
 }
 
 /** Тело статьи — Markdown (рендер и санитизация на фронте). */
@@ -345,7 +388,10 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
       }
       const { id: postId } = parsed.data;
       const userId = getUserId(request);
-      const { body: text } = createCommentBodySchema.parse(request.body);
+      const parsedBody = createCommentBodySchema.parse(request.body);
+      const text = parsedBody.body;
+      const parentIdRaw = parsedBody.parentId;
+      const parentId = parentIdRaw === undefined || parentIdRaw === null ? null : parentIdRaw;
 
       const post = await prisma.feedPost.findFirst({
         where: { id: postId, status: "published" },
@@ -355,20 +401,96 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(404).send({ success: false, message: "Статья не найдена" });
       }
 
+      if (parentId) {
+        const parent = await prisma.feedComment.findFirst({
+          where: { id: parentId, postId },
+        });
+        if (!parent) {
+          return reply.status(400).send({ success: false, message: "Комментарий для ответа не найден" });
+        }
+      }
+
       const comment = await prisma.feedComment.create({
-        data: { postId, authorId: userId, body: text },
-        include: { author: { select: authorSelect } },
+        data: { postId, authorId: userId, body: text, parentId },
+        include: { author: { select: authorSelect }, _count: { select: { likes: true } } },
       });
 
       return reply.status(201).send({
         success: true,
         data: {
           id: comment.id,
+          parentId: comment.parentId,
           body: comment.body,
           createdAt: comment.createdAt,
           updatedAt: comment.updatedAt,
           author: comment.author,
+          likeCount: comment._count.likes,
+          likedByMe: false,
+          replies: [],
         },
+      });
+    },
+  );
+
+  app.post(
+    "/comments/:commentId/like",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = commentIdParamsSchema.safeParse(request.params);
+      if (!parsed.success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const { commentId } = parsed.data;
+      const userId = getUserId(request);
+
+      const comment = await prisma.feedComment.findUnique({
+        where: { id: commentId },
+        include: { post: { select: { status: true } } },
+      });
+      if (!comment || comment.post.status !== "published") {
+        return reply.status(404).send({ success: false, message: "Комментарий не найден" });
+      }
+
+      await prisma.feedCommentLike.createMany({
+        data: [{ commentId, userId }],
+        skipDuplicates: true,
+      });
+
+      const likeCount = await prisma.feedCommentLike.count({ where: { commentId } });
+      return reply.send({
+        success: true,
+        data: { likeCount, likedByMe: true },
+      });
+    },
+  );
+
+  app.delete(
+    "/comments/:commentId/like",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = commentIdParamsSchema.safeParse(request.params);
+      if (!parsed.success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const { commentId } = parsed.data;
+      const userId = getUserId(request);
+
+      const comment = await prisma.feedComment.findUnique({
+        where: { id: commentId },
+        include: { post: { select: { status: true } } },
+      });
+      if (!comment || comment.post.status !== "published") {
+        return reply.status(404).send({ success: false, message: "Комментарий не найден" });
+      }
+
+      await prisma.feedCommentLike.deleteMany({
+        where: { commentId, userId },
+      });
+
+      const likeCount = await prisma.feedCommentLike.count({ where: { commentId } });
+      return reply.send({
+        success: true,
+        data: { likeCount, likedByMe: false },
       });
     },
   );
@@ -400,17 +522,26 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
       const updated = await prisma.feedComment.update({
         where: { id: commentId },
         data: { body: text },
-        include: { author: { select: authorSelect } },
+        include: { author: { select: authorSelect }, _count: { select: { likes: true } } },
+      });
+
+      const likedRow = await prisma.feedCommentLike.findUnique({
+        where: { commentId_userId: { commentId: updated.id, userId } },
+        select: { id: true },
       });
 
       return reply.send({
         success: true,
         data: {
           id: updated.id,
+          parentId: updated.parentId,
           body: updated.body,
           createdAt: updated.createdAt,
           updatedAt: updated.updatedAt,
           author: updated.author,
+          likeCount: updated._count.likes,
+          likedByMe: Boolean(likedRow),
+          replies: [],
         },
       });
     },
@@ -494,15 +625,42 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     const c = counts?._count ?? post._count;
     const commentSkip = (cq.commentsPage - 1) * cq.commentsLimit;
 
-    const commentsPageRows = await prisma.feedComment.findMany({
+    const allPostComments = await prisma.feedComment.findMany({
       where: { postId: id },
       orderBy: { createdAt: "asc" },
-      skip: commentSkip,
-      take: cq.commentsLimit,
-      include: { author: { select: authorSelect } },
+      include: {
+        author: { select: authorSelect },
+        _count: { select: { likes: true } },
+      },
     });
 
-    const commentsTotalPages = Math.max(1, Math.ceil(c.comments / cq.commentsLimit));
+    const rows: CommentWithMeta[] = allPostComments.map((cm) => ({
+      id: cm.id,
+      parentId: cm.parentId,
+      body: cm.body,
+      createdAt: cm.createdAt,
+      updatedAt: cm.updatedAt,
+      author: cm.author,
+      _count: cm._count,
+    }));
+
+    const byParentId = buildCommentsByParentId(rows);
+    const rootsOrdered = byParentId.get(null) ?? [];
+    const rootCommentsTotal = rootsOrdered.length;
+    const pageRoots = rootsOrdered.slice(commentSkip, commentSkip + cq.commentsLimit);
+    const commentsTotalPages = Math.max(1, Math.ceil(rootCommentsTotal / cq.commentsLimit));
+
+    const allIds = rows.map((r) => r.id);
+    let likedCommentIds = new Set<string>();
+    if (optionalUserId && allIds.length > 0) {
+      const commentLikes = await prisma.feedCommentLike.findMany({
+        where: { userId: optionalUserId, commentId: { in: allIds } },
+        select: { commentId: true },
+      });
+      likedCommentIds = new Set(commentLikes.map((l) => l.commentId));
+    }
+
+    const comments = pageRoots.map((root) => serializeCommentBranch(root, byParentId, likedCommentIds));
 
     return {
       success: true,
@@ -521,17 +679,12 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
         likeCount: c.likes,
         uniqueViewCount: c.views,
         commentCount: c.comments,
+        rootCommentsTotal,
         likedByMe: Boolean(likedRow),
         commentsPage: cq.commentsPage,
         commentsLimit: cq.commentsLimit,
         commentsTotalPages,
-        comments: commentsPageRows.map((cm) => ({
-          id: cm.id,
-          body: cm.body,
-          createdAt: cm.createdAt,
-          updatedAt: cm.updatedAt,
-          author: cm.author,
-        })),
+        comments,
       },
     };
   });
