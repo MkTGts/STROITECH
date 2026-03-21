@@ -53,8 +53,9 @@ function patchCommentLikes(
     if (node.id === commentId) {
       return { ...node, likeCount: next.likeCount, likedByMe: next.likedByMe };
     }
-    if (node.replies.length > 0) {
-      return { ...node, replies: patchCommentLikes(node.replies, commentId, next) };
+    const reps = node.replies ?? [];
+    if (reps.length > 0) {
+      return { ...node, replies: patchCommentLikes(reps, commentId, next) };
     }
     return node;
   });
@@ -154,7 +155,7 @@ function LentaPostInner({ id }: { id: string }) {
     try {
       const data = await fetchPostDetail(page);
       let next = data;
-      if (next.comments.length === 0 && page > 1 && next.rootCommentsTotal > 0) {
+      if (next.comments.length === 0 && page > 1 && (next.rootCommentsTotal ?? 0) > 0) {
         const prevPage = page - 1;
         setCommentsPage(prevPage);
         next = await fetchPostDetail(prevPage);
@@ -184,7 +185,8 @@ function LentaPostInner({ id }: { id: string }) {
       setReplyTo(null);
       const isReply = Boolean(replyParent);
       if (!isReply) {
-        const nextRoots = post.rootCommentsTotal + 1;
+        const rootTotal = post.rootCommentsTotal ?? 0;
+        const nextRoots = rootTotal + 1;
         const lastPage = Math.max(1, Math.ceil(nextRoots / COMMENTS_LIMIT));
         setCommentsPage(lastPage);
       }
@@ -358,9 +360,9 @@ function LentaPostInner({ id }: { id: string }) {
             <p className="whitespace-pre-wrap text-sm text-foreground">{comment.body}</p>
           )}
         </div>
-        {comment.replies.length > 0 ? (
+        {(comment.replies?.length ?? 0) > 0 ? (
           <ul className="ml-1 mt-2 space-y-1 border-l border-border/60 pl-3">
-            {comment.replies.map((ch) => renderCommentTree(ch, depth + 1))}
+            {(comment.replies ?? []).map((ch) => renderCommentTree(ch, depth + 1))}
           </ul>
         ) : null}
       </li>
@@ -574,7 +576,7 @@ function LentaPostInner({ id }: { id: string }) {
         {post.commentsTotalPages > 1 && (
           <p className="mb-2 text-sm text-muted-foreground">
             Страница веток {post.commentsPage} из {post.commentsTotalPages}. Корневых комментариев:{" "}
-            {post.rootCommentsTotal}. Всего сообщений (с ответами): {post.commentCount}.
+            {post.rootCommentsTotal ?? 0}. Всего сообщений (с ответами): {post.commentCount}.
           </p>
         )}
         {post.comments.length === 0 ? (

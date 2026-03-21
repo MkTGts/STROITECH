@@ -37,8 +37,8 @@ export type FeedPostDetail = FeedPostListItem & {
   body: string;
   status: string;
   likedByMe: boolean;
-  /** Число корневых комментариев (веток); пагинация по ним */
-  rootCommentsTotal: number;
+  /** Число корневых комментариев (веток); пагинация по ним (с бэкенда после миграции веток) */
+  rootCommentsTotal?: number;
   comments: FeedComment[];
   commentsPage: number;
   commentsLimit: number;
