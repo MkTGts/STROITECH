@@ -79,7 +79,12 @@ export default function DashboardPage() {
   async function handleSaveProfile() {
     setSaving(true);
     try {
-      await api("/users/profile", { method: "PUT", body: JSON.stringify(form) });
+      const companyName =
+        form.companyName.trim() === "" ? null : form.companyName.trim();
+      await api("/users/profile", {
+        method: "PUT",
+        body: JSON.stringify({ ...form, companyName }),
+      });
       await fetchUser();
       setEditMode(false);
       toast.success("Профиль обновлён");
@@ -265,8 +270,12 @@ export default function DashboardPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Компания</Label>
-                    <Input value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
+                    <Label>Компания (необязательно)</Label>
+                    <Input
+                      value={form.companyName}
+                      onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))}
+                      placeholder="Оставьте пустым, если не нужно"
+                    />
                   </div>
                   <div>
                     <Label>Описание</Label>

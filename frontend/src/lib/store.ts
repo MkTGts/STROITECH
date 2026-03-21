@@ -43,9 +43,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (data) => {
+    const companyName =
+      typeof data.companyName === "string" && data.companyName.trim() !== ""
+        ? data.companyName.trim()
+        : null;
     const res = await api<any>("/auth/register", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, companyName }),
     });
     localStorage.setItem("accessToken", res.data.tokens.accessToken);
     localStorage.setItem("refreshToken", res.data.tokens.refreshToken);

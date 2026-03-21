@@ -110,10 +110,10 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="companyName">Компания (опционально)</Label>
+                  <Label htmlFor="companyName">Компания (необязательно)</Label>
                   <Input
                     id="companyName"
-                    placeholder="ООО Строй"
+                    placeholder="Можно оставить пустым"
                     value={form.companyName}
                     onChange={(e) => updateField("companyName", e.target.value)}
                   />

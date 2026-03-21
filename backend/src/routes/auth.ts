@@ -10,7 +10,7 @@ const registerSchema = z.object({
   role: z.enum(["supplier", "builder", "equipment", "client"]),
   name: z.string().min(2),
   region: z.string().min(2),
-  companyName: z.string().optional(),
+  companyName: z.union([z.string(), z.null()]).optional(),
   description: z.string().min(10),
 });
 
@@ -37,6 +37,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const passwordHash = await hashPassword(body.password);
+    const rawCompany = body.companyName;
+    const companyName =
+      rawCompany == null || String(rawCompany).trim() === "" ? null : String(rawCompany).trim();
+
     const user = await prisma.user.create({
       data: {
         email: body.email,
@@ -45,7 +49,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         role: body.role,
         name: body.name,
         region: body.region,
-        companyName: body.companyName || null,
+        companyName,
         description: body.description,
       },
     });

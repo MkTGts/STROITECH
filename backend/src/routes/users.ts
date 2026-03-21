@@ -7,7 +7,7 @@ const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().min(10).optional(),
   region: z.string().min(2).optional(),
-  companyName: z.string().optional(),
+  companyName: z.union([z.string(), z.null()]).optional(),
   description: z.string().optional(),
   avatarUrl: z.string().url().nullable().optional(),
 });
@@ -89,11 +89,18 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [app.authenticate] },
     async (request: FastifyRequest) => {
       const userId = getUserId(request);
-      const body = updateProfileSchema.parse(request.body);
+      const parsed = updateProfileSchema.parse(request.body);
+      const data = { ...parsed };
+      if (parsed.companyName !== undefined) {
+        data.companyName =
+          parsed.companyName === null || String(parsed.companyName).trim() === ""
+            ? null
+            : String(parsed.companyName).trim();
+      }
 
       const user = await prisma.user.update({
         where: { id: userId },
-        data: body,
+        data,
       });
 
       const { passwordHash, ...safe } = user;
