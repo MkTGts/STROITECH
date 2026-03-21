@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   Building2,
   MessageCircle,
-  User,
   Bell,
   Menu,
   Search,
@@ -15,6 +14,7 @@ import {
   HardHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/store";
@@ -77,7 +77,14 @@ export function Header() {
               </Link>
               <Link href="/dashboard">
                 <Button variant="ghost" size="sm" className="gap-2">
-                  <User className="h-4 w-4" />
+                  <Avatar className="h-7 w-7">
+                    {user?.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt={user.name || ""} />
+                    ) : null}
+                    <AvatarFallback className="bg-primary/10 text-xs text-primary">
+                      {(user?.name || "П").charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
                   {user?.name?.split(" ")[0] || "Профиль"}
                 </Button>
               </Link>
@@ -131,7 +138,14 @@ export function Header() {
                 <>
                   <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start gap-3">
-                      <User className="h-5 w-5" />
+                      <Avatar className="h-8 w-8">
+                        {user?.avatarUrl ? (
+                          <AvatarImage src={user.avatarUrl} alt={user.name || ""} />
+                        ) : null}
+                        <AvatarFallback className="bg-primary/10 text-sm text-primary">
+                          {(user?.name || "П").charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
                       Личный кабинет
                     </Button>
                   </Link>

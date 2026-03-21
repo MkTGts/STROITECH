@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/store";
 import { useDebounce } from "@/lib/hooks";
@@ -165,6 +165,9 @@ export default function ProfilesPage() {
                 <CardContent className="flex flex-1 flex-col p-5">
                   <div className="flex items-start gap-4">
                     <Avatar className="h-14 w-14 shrink-0">
+                      {user.avatarUrl ? (
+                        <AvatarImage src={user.avatarUrl} alt={user.name} />
+                      ) : null}
                       <AvatarFallback className="bg-primary/10 text-lg text-primary">
                         {user.name.charAt(0)}
                       </AvatarFallback>

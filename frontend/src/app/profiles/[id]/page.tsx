@@ -7,7 +7,7 @@ import { ArrowLeft, MessageCircle, Phone, Mail, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ListingCard } from "@/components/features/listing-card";
 import { useAuthStore } from "@/lib/store";
@@ -61,6 +61,9 @@ export default function ProfileDetailPage() {
         <CardContent className="p-6 md:p-8">
           <div className="flex flex-col items-start gap-6 md:flex-row">
             <Avatar className="h-24 w-24 shrink-0">
+              {profile.avatarUrl ? (
+                <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+              ) : null}
               <AvatarFallback className="bg-primary/10 text-3xl text-primary">
                 {profile.name.charAt(0)}
               </AvatarFallback>

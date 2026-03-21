@@ -5,7 +5,7 @@ import { MessageCircle, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/store";
 
 type ListingCardProps = {
@@ -95,6 +95,9 @@ export function ListingCard({ listing }: ListingCardProps) {
           <div className="mt-auto flex items-center justify-between border-t pt-3">
             <Link href={profileHref(listing.user.id)} className="flex items-center gap-2">
               <Avatar className="h-7 w-7">
+                {listing.user.avatarUrl ? (
+                  <AvatarImage src={listing.user.avatarUrl} alt={listing.user.name} />
+                ) : null}
                 <AvatarFallback className="bg-primary/10 text-xs text-primary">
                   {listing.user.name.charAt(0)}
                 </AvatarFallback>

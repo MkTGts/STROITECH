@@ -77,6 +77,11 @@ export function ChatPageClient() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [draftRecipient, setDraftRecipient] = useState<{
+    name: string;
+    companyName: string | null;
+    avatarUrl: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/auth/login");
@@ -86,6 +91,31 @@ export function ChatPageClient() {
     if (!isAuthenticated) return;
     void loadConversations();
   }, [isAuthenticated]);
+
+  const toParam = searchParams.get("to");
+  useEffect(() => {
+    if (!isAuthenticated || !toParam || activeConvId) {
+      setDraftRecipient(null);
+      return;
+    }
+    let cancelled = false;
+    api<any>(`/users/${toParam}`)
+      .then((res) => {
+        if (cancelled || !res?.data) return;
+        const d = res.data;
+        setDraftRecipient({
+          name: d.name,
+          companyName: d.companyName ?? null,
+          avatarUrl: d.avatarUrl ?? null,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setDraftRecipient(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, toParam, activeConvId]);
 
   useEffect(() => {
     const to = searchParams.get("to");
@@ -519,9 +549,48 @@ export function ChatPageClient() {
     setDeleting(false);
   }
 
+  function renderMessageAvatar(msg: MessageItem, isOwn: boolean) {
+    if (isOwn && user) {
+      return (
+        <Avatar className="h-8 w-8 shrink-0">
+          {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
+          <AvatarFallback className="bg-primary/10 text-xs text-primary">
+            {user.name.charAt(0)}
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+    if (msg.senderId === BOT_SENDER_ID) {
+      return (
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarImage src="/bot-avatar.svg" alt="Ассистент" />
+          <AvatarFallback className="bg-blue-100 text-xs text-blue-800">А</AvatarFallback>
+        </Avatar>
+      );
+    }
+    if (activeConvId === SUPPORT_CONVERSATION_ID) {
+      return (
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+            <LifeBuoy className="h-4 w-4" />
+          </AvatarFallback>
+        </Avatar>
+      );
+    }
+    const peer = conversations.find((c) => c.id === activeConvId)?.participant;
+    return (
+      <Avatar className="h-8 w-8 shrink-0">
+        {peer?.avatarUrl ? <AvatarImage src={peer.avatarUrl} alt={peer.name || ""} /> : null}
+        <AvatarFallback className="bg-primary/10 text-xs text-primary">
+          {(peer?.name || "?").charAt(0)}
+        </AvatarFallback>
+      </Avatar>
+    );
+  }
+
   if (!isAuthenticated) return null;
 
-  const isNewChat = searchParams.get("to") && !activeConvId;
+  const isNewChat = Boolean(toParam && !activeConvId);
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl w-full overflow-hidden">
@@ -603,7 +672,7 @@ export function ChatPageClient() {
         {activeConvId || isNewChat ? (
           <>
             <div className="flex h-14 items-center gap-3 border-b px-4 justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -615,14 +684,66 @@ export function ChatPageClient() {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                {activeConvId && (
-                  <p className="font-semibold">
-                    {conversations.find((c) => c.id === activeConvId)?.participant.companyName ||
-                      conversations.find((c) => c.id === activeConvId)?.participant.name ||
-                      "Диалог"}
-                  </p>
+                {activeConvId && activeConvId !== SUPPORT_CONVERSATION_ID && (
+                  (() => {
+                    const conv = conversations.find((c) => c.id === activeConvId);
+                    const p = conv?.participant;
+                    if (!p) {
+                      return <p className="truncate font-semibold">Диалог</p>;
+                    }
+                    return (
+                      <>
+                        <Avatar className="h-9 w-9 shrink-0">
+                          {activeConvId === BOT_CONVERSATION_ID ? (
+                            <>
+                              <AvatarImage src="/bot-avatar.svg" alt={p.name} />
+                              <AvatarFallback className="bg-blue-100 text-blue-800">А</AvatarFallback>
+                            </>
+                          ) : (
+                            <>
+                              {p.avatarUrl ? <AvatarImage src={p.avatarUrl} alt={p.name} /> : null}
+                              <AvatarFallback className="bg-primary/10 text-sm text-primary">
+                                {p.name.charAt(0)}
+                              </AvatarFallback>
+                            </>
+                          )}
+                        </Avatar>
+                        <p className="truncate font-semibold">
+                          {p.companyName || p.name}
+                        </p>
+                      </>
+                    );
+                  })()
                 )}
-                {isNewChat && <p className="font-semibold">Новый диалог</p>}
+                {activeConvId === SUPPORT_CONVERSATION_ID && (
+                  <>
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarFallback className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        <LifeBuoy className="h-5 w-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="truncate font-semibold">Тех. поддержка</p>
+                  </>
+                )}
+                {isNewChat && (
+                  <>
+                    {draftRecipient ? (
+                      <Avatar className="h-9 w-9 shrink-0">
+                        {draftRecipient.avatarUrl ? (
+                          <AvatarImage src={draftRecipient.avatarUrl} alt={draftRecipient.name} />
+                        ) : null}
+                        <AvatarFallback className="bg-primary/10 text-sm text-primary">
+                          {draftRecipient.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : null}
+                    <p className="truncate font-semibold">
+                      {draftRecipient
+                        ? `Новый диалог — ${draftRecipient.companyName || draftRecipient.name}`
+                        : "Новый диалог"}
+                    </p>
+                  </>
+                )}
               </div>
               {activeConvId && activeConvId !== BOT_CONVERSATION_ID && activeConvId !== SUPPORT_CONVERSATION_ID && (
                 <Button
@@ -639,90 +760,100 @@ export function ChatPageClient() {
 
             <div ref={messagesViewportRef} className="flex-1 overflow-y-auto p-4">
               <div className="space-y-3">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      "flex",
-                      msg.senderId === user?.id ? "justify-end" : "justify-start",
-                    )}
-                  >
+                {messages.map((msg) => {
+                  const isOwn = msg.senderId === user?.id;
+                  return (
                     <div
-                      className={cn(
-                        "max-w-[70%] rounded-2xl px-4 py-2",
-                        msg.senderId === user?.id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted",
-                      )}
+                      key={msg.id}
+                      className={cn("flex w-full", isOwn ? "justify-end" : "justify-start")}
                     >
-                      {isImageUrl(msg.content) ? (
-                        <button
-                          type="button"
-                          onClick={() => triggerDownload(msg.content)}
-                          className="block cursor-pointer"
-                        >
-                          <img
-                            src={msg.content}
-                            alt="Вложенное изображение"
-                            className="max-h-64 w-full max-w-xs cursor-pointer rounded-lg object-cover"
-                          />
-                        </button>
-                      ) : isProbablyUrl(msg.content) ? (
-                        <button
-                          type="button"
-                          onClick={() => triggerDownload(msg.content)}
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                            msg.senderId === user?.id
-                              ? "border border-primary/40 bg-primary/10 text-primary-foreground hover:bg-primary/20"
-                              : "border border-muted-foreground/40 bg-background/20 text-muted-foreground hover:bg-background/40",
-                          )}
-                        >
-                          Скачать вложение
-                        </button>
-                      ) : (
-                        <p className="whitespace-pre-wrap text-sm">
-                          {msg.senderId === BOT_SENDER_ID
-                            ? renderMarkdown(msg.content)
-                            : msg.content}
-                        </p>
-                      )}
-                      <div className="mt-1 flex items-center justify-end gap-1 text-xs">
-                        <span
-                          className={cn(
-                            msg.senderId === user?.id
-                              ? "text-primary-foreground/70"
-                              : "text-muted-foreground",
-                          )}
-                        >
-                          {new Date(msg.createdAt).toLocaleTimeString("ru-RU", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                        {msg.senderId === user?.id && (
-                          <span className="inline-flex items-center gap-0.5">
-                            {msg.isRead ? (
-                              <CheckCheck className="h-3 w-3 text-primary-foreground/80" />
-                            ) : (
-                              <Check className="h-3 w-3 text-primary-foreground/80" />
-                            )}
-                          </span>
+                      <div
+                        className={cn(
+                          "flex max-w-[min(100%,42rem)] items-end gap-2",
+                          isOwn ? "flex-row-reverse" : "flex-row",
                         )}
+                      >
+                        {renderMessageAvatar(msg, isOwn)}
+                        <div
+                          className={cn(
+                            "min-w-0 max-w-[70%] rounded-2xl px-4 py-2",
+                            isOwn ? "bg-primary text-primary-foreground" : "bg-muted",
+                          )}
+                        >
+                          {isImageUrl(msg.content) ? (
+                            <button
+                              type="button"
+                              onClick={() => triggerDownload(msg.content)}
+                              className="block cursor-pointer"
+                            >
+                              <img
+                                src={msg.content}
+                                alt="Вложенное изображение"
+                                className="max-h-64 w-full max-w-xs cursor-pointer rounded-lg object-cover"
+                              />
+                            </button>
+                          ) : isProbablyUrl(msg.content) ? (
+                            <button
+                              type="button"
+                              onClick={() => triggerDownload(msg.content)}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                                isOwn
+                                  ? "border border-primary/40 bg-primary/10 text-primary-foreground hover:bg-primary/20"
+                                  : "border border-muted-foreground/40 bg-background/20 text-muted-foreground hover:bg-background/40",
+                              )}
+                            >
+                              Скачать вложение
+                            </button>
+                          ) : (
+                            <p className="whitespace-pre-wrap text-sm">
+                              {msg.senderId === BOT_SENDER_ID
+                                ? renderMarkdown(msg.content)
+                                : msg.content}
+                            </p>
+                          )}
+                          <div className="mt-1 flex items-center justify-end gap-1 text-xs">
+                            <span
+                              className={cn(
+                                isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
+                              )}
+                            >
+                              {new Date(msg.createdAt).toLocaleTimeString("ru-RU", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {isOwn && (
+                              <span className="inline-flex items-center gap-0.5">
+                                {msg.isRead ? (
+                                  <CheckCheck className="h-3 w-3 text-primary-foreground/80" />
+                                ) : (
+                                  <Check className="h-3 w-3 text-primary-foreground/80" />
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {activeConvId === BOT_CONVERSATION_ID && botThinking && (
                   <div className="flex justify-start">
-                    <div className="max-w-[70%] rounded-2xl bg-muted px-4 py-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <span>Ассистент думает</span>
-                        <span className="flex gap-1">
-                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground" />
-                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                        </span>
+                    <div className="flex max-w-[min(100%,42rem)] items-end gap-2">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src="/bot-avatar.svg" alt="" />
+                        <AvatarFallback className="bg-blue-100 text-xs text-blue-800">А</AvatarFallback>
+                      </Avatar>
+                      <div className="max-w-[70%] rounded-2xl bg-muted px-4 py-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span>Ассистент думает</span>
+                          <span className="flex gap-1">
+                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground" />
+                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:150ms]" />
+                            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground [animation-delay:300ms]" />
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>

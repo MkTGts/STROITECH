@@ -7,7 +7,7 @@ import { ArrowLeft, MessageCircle, Check, Clock, AlertCircle, MapPin, Pencil, Sa
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -416,6 +416,9 @@ export default function ObjectDetailPage() {
               <CardContent className="p-5">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
+                    {object.user.avatarUrl ? (
+                      <AvatarImage src={object.user.avatarUrl} alt={object.user.name} />
+                    ) : null}
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {object.user.name.charAt(0)}
                     </AvatarFallback>

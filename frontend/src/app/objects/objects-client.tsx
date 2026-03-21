@@ -7,7 +7,7 @@ import { Plus, MessageCircle, Building2, Clock, CheckCircle2, AlertCircle, Info 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
@@ -219,6 +219,9 @@ export function ObjectsPageClient() {
                           <div className="mt-4 mt-auto flex items-center justify-between border-t pt-3">
                             <div className="flex min-w-0 flex-1 items-center gap-2">
                               <Avatar className="h-7 w-7 shrink-0">
+                                {obj.user.avatarUrl ? (
+                                  <AvatarImage src={obj.user.avatarUrl} alt={obj.user.name} />
+                                ) : null}
                                 <AvatarFallback className="bg-primary/10 text-xs text-primary">
                                   {obj.user.name.charAt(0)}
                                 </AvatarFallback>

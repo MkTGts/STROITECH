@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -252,6 +252,9 @@ export default function ListingDetailPage() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-12 w-12">
+                    {listing.user.avatarUrl ? (
+                      <AvatarImage src={listing.user.avatarUrl} alt={listing.user.name} />
+                    ) : null}
                     <AvatarFallback className="bg-primary/10 text-primary">
                       {listing.user.name.charAt(0)}
                     </AvatarFallback>
