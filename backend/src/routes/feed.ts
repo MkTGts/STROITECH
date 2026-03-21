@@ -52,6 +52,19 @@ type CommentWithMeta = {
   _count: { likes: number };
 };
 
+/** Дерево комментариев в ответе GET /posts/:id (рекурсивный тип). */
+type SerializedCommentBranch = {
+  id: string;
+  parentId: string | null;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+  author: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  likeCount: number;
+  likedByMe: boolean;
+  replies: SerializedCommentBranch[];
+};
+
 function buildCommentsByParentId(rows: CommentWithMeta[]): Map<string | null, CommentWithMeta[]> {
   const map = new Map<string | null, CommentWithMeta[]>();
   for (const row of rows) {
@@ -69,7 +82,7 @@ function serializeCommentBranch(
   row: CommentWithMeta,
   byParentId: Map<string | null, CommentWithMeta[]>,
   likedIds: Set<string>,
-) {
+): SerializedCommentBranch {
   const kids = byParentId.get(row.id) ?? [];
   return {
     id: row.id,
@@ -117,6 +130,23 @@ const updateFeedPostSchema = z
     message: "Укажите хотя бы одно поле",
   });
 
+type SerializedFeedPostRow = {
+  id: string;
+  title: string;
+  slug: string | null;
+  excerpt: string | null;
+  body: string;
+  coverImageUrl: string | null;
+  status: string;
+  publishedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  author: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  likeCount: number;
+  uniqueViewCount: number;
+  commentCount: number;
+};
+
 function serializeFeedPostRow(p: {
   id: string;
   title: string;
@@ -130,7 +160,7 @@ function serializeFeedPostRow(p: {
   updatedAt: Date;
   author: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
   _count: { likes: number; views: number; comments: number };
-}) {
+}): SerializedFeedPostRow {
   return {
     id: p.id,
     title: p.title,
