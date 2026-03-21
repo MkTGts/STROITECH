@@ -5,7 +5,7 @@
  * Смена страницы комментариев — повторный GET с commentsPage.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, MessageCircle, Pencil, Trash2 } from "lucide-react";
@@ -55,6 +55,9 @@ function LentaPostInner({ id }: { id: string }) {
   const [notFound, setNotFound] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [commentsPage, setCommentsPage] = useState(1);
+  /** Сбрасывает повторный fetch комментариев, если страница пагинации не изменилась (после своего POST). */
+  const [commentsRefreshTick, setCommentsRefreshTick] = useState(0);
+  const hasLoadedArticleRef = useRef(false);
   const [newCommentBody, setNewCommentBody] = useState("");
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -80,13 +83,19 @@ function LentaPostInner({ id }: { id: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     setNotFound(false);
     setLoadError(null);
 
+    if (!hasLoadedArticleRef.current) {
+      setLoading(true);
+    }
+
     fetchPostDetail(commentsPage)
       .then((data) => {
-        if (!cancelled) setPost(data);
+        if (!cancelled) {
+          setPost(data);
+          hasLoadedArticleRef.current = true;
+        }
       })
       .catch((err) => {
         if (!cancelled) {
@@ -107,7 +116,21 @@ function LentaPostInner({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [id, commentsPage, fetchPostDetail]);
+  }, [id, commentsPage, commentsRefreshTick, fetchPostDetail]);
+
+  /** Подтягиваем новые комментарии других пользователей, пока вкладка открыта (без WebSocket). */
+  useEffect(() => {
+    if (!post) return;
+    const intervalMs = 28_000;
+    const tick = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void fetchPostDetail(commentsPage)
+        .then((data) => setPost(data))
+        .catch(() => {});
+    };
+    const idInterval = window.setInterval(tick, intervalMs);
+    return () => window.clearInterval(idInterval);
+  }, [post?.id, commentsPage, fetchPostDetail]);
 
   async function refetchCommentsPage(page: number) {
     try {
@@ -139,6 +162,7 @@ function LentaPostInner({ id }: { id: string }) {
       const nextCount = post.commentCount + 1;
       const lastPage = Math.max(1, Math.ceil(nextCount / COMMENTS_LIMIT));
       setCommentsPage(lastPage);
+      setCommentsRefreshTick((t) => t + 1);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Не удалось отправить комментарий";
       toast.error(message);
@@ -220,7 +244,7 @@ function LentaPostInner({ id }: { id: string }) {
     }
   }
 
-  if (loading) {
+  if (loading && !post) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6 h-10 w-48 animate-pulse rounded bg-muted" />
@@ -348,6 +372,33 @@ function LentaPostInner({ id }: { id: string }) {
       <MarkdownBody markdown={post.body} />
 
       <section className="mt-12 border-t pt-8">
+        <div className="mb-8 flex flex-col gap-4 border-b pb-8 sm:flex-row sm:flex-wrap sm:items-center sm:gap-8">
+          <FeedLikeButton
+            prominent
+            postId={post.id}
+            likeCount={post.likeCount}
+            likedByMe={post.likedByMe}
+            isAuthenticated={isAuthenticated}
+            onSync={(next) =>
+              setPost((p) => (p ? { ...p, likeCount: next.likeCount, likedByMe: next.likedByMe } : p))
+            }
+          />
+          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <MessageCircle className="h-5 w-5 shrink-0 text-foreground/70" aria-hidden />
+            <span>
+              Комментариев:{" "}
+              <span className="font-medium text-foreground tabular-nums">{post.commentCount}</span>
+            </span>
+          </span>
+          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <Eye className="h-5 w-5 shrink-0 text-foreground/70" aria-hidden />
+            <span>
+              Просмотров:{" "}
+              <span className="font-medium text-foreground tabular-nums">{post.uniqueViewCount}</span>
+            </span>
+          </span>
+        </div>
+
         <h2 className="mb-4 text-lg font-semibold">Комментарии ({post.commentCount})</h2>
 
         {isAuthenticated ? (

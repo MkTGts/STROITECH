@@ -20,6 +20,8 @@ type FeedLikeButtonProps = {
   onSync?: (next: { likeCount: number; likedByMe: boolean }) => void;
   /** Компактный вид для карточки в сетке */
   compact?: boolean;
+  /** Крупная синяя кнопка «Мне нравится» (низ статьи перед комментариями) */
+  prominent?: boolean;
 };
 
 /**
@@ -33,6 +35,7 @@ export function FeedLikeButton({
   isAuthenticated,
   onSync,
   compact,
+  prominent,
 }: FeedLikeButtonProps) {
   const [count, setCount] = useState(initialCount);
   const [liked, setLiked] = useState(initialLiked);
@@ -42,27 +45,6 @@ export function FeedLikeButton({
     setCount(initialCount);
     setLiked(initialLiked);
   }, [postId, initialCount, initialLiked]);
-
-  if (!isAuthenticated) {
-    return (
-      <div
-        className={cn(
-          "flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground",
-          compact ? "text-xs" : "text-sm",
-        )}
-      >
-        <span className="inline-flex items-center gap-1" title="Лайки">
-          <Heart className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
-          {initialCount}
-        </span>
-        <Button variant="link" size="sm" className={cn("h-auto p-0", compact && "text-xs")} asChild>
-          <Link href="/auth/login">
-            {compact ? "Войти" : "Войти, чтобы лайкнуть"}
-          </Link>
-        </Button>
-      </div>
-    );
-  }
 
   async function toggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -95,6 +77,71 @@ export function FeedLikeButton({
     } finally {
       setPending(false);
     }
+  }
+
+  if (prominent && !isAuthenticated) {
+    return (
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Heart className="h-5 w-5 shrink-0" aria-hidden />
+          <span>
+            Уже оценили: <span className="font-medium text-foreground">{initialCount}</span>
+          </span>
+        </span>
+        <Button variant="default" size="lg" className="h-11 gap-2 px-6 text-base shadow-sm sm:min-w-[220px]" asChild>
+          <Link href="/auth/login">
+            <Heart className="!size-5" aria-hidden />
+            Мне нравится
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (prominent && isAuthenticated) {
+    return (
+      <Button
+        type="button"
+        variant="default"
+        size="lg"
+        disabled={pending}
+        onClick={toggle}
+        className="h-11 gap-2 px-6 text-base shadow-sm sm:min-w-[220px]"
+        title={liked ? "Нажмите, чтобы убрать лайк" : undefined}
+      >
+        <Heart
+          className={cn("!size-5 shrink-0", liked && "fill-primary-foreground text-primary-foreground")}
+          aria-hidden
+        />
+        <span>{liked ? "Вам нравится" : "Мне нравится"}</span>
+        {count > 0 && (
+          <span className="ml-0.5 rounded-full bg-primary-foreground/20 px-2 py-0.5 text-sm font-semibold tabular-nums">
+            {count}
+          </span>
+        )}
+      </Button>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground",
+          compact ? "text-xs" : "text-sm",
+        )}
+      >
+        <span className="inline-flex items-center gap-1" title="Лайки">
+          <Heart className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4")} aria-hidden />
+          {initialCount}
+        </span>
+        <Button variant="link" size="sm" className={cn("h-auto p-0", compact && "text-xs")} asChild>
+          <Link href="/auth/login">
+            {compact ? "Войти" : "Войти, чтобы лайкнуть"}
+          </Link>
+        </Button>
+      </div>
+    );
   }
 
   const iconClass = compact ? "h-3.5 w-3.5" : "h-4 w-4";
