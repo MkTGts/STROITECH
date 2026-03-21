@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ListingsFeed } from "@/components/features/listings-feed";
+import { HomeFeedPreview } from "@/components/features/home-feed-preview";
 import { useAuthStore } from "@/lib/store";
 
 const CATEGORIES = [
@@ -135,6 +136,25 @@ export default function HomePage() {
             </Link>
           </div>
           <ListingsFeed />
+        </div>
+      </section>
+
+      <section className="border-t bg-muted/30 py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4">
+          <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold md:text-3xl">В ленте</h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground md:text-base">
+                Статьи и разборы от участников площадки — практика, опыт, идеи для ваших объектов.
+              </p>
+            </div>
+            <Link href="/lenta" className="shrink-0 sm:self-center">
+              <Button variant="ghost" className="gap-2">
+                Открыть ленту <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+          <HomeFeedPreview />
         </div>
       </section>
 

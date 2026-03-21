@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Phone, Mail, Building } from "lucide-react";
+import { ArrowLeft, ArrowRight, MessageCircle, Newspaper, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,19 @@ import { Separator } from "@/components/ui/separator";
 import { ListingCard } from "@/components/features/listing-card";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
+import type { FeedPostListItem } from "shared";
+
+function formatShortDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",
@@ -25,12 +38,42 @@ export default function ProfileDetailPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [feedPosts, setFeedPosts] = useState<FeedPostListItem[]>([]);
+  const [feedPostsLoading, setFeedPostsLoading] = useState(true);
 
   useEffect(() => {
+    if (!id || typeof id !== "string") return;
+    let cancelled = false;
+    setLoading(true);
+    setFeedPostsLoading(true);
+
     api<any>(`/users/${id}`)
-      .then((res) => setProfile(res.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then((res) => {
+        if (!cancelled) setProfile(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    api<{ success: boolean; data: { items: FeedPostListItem[] } }>("/feed/posts", {
+      params: { authorId: id, limit: 50, page: 1 },
+    })
+      .then((res) => {
+        if (!cancelled) setFeedPosts(res.data?.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedPosts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setFeedPostsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {
@@ -121,6 +164,63 @@ export default function ProfileDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mt-8">
+        <h2 className="mb-4 text-xl font-bold">Статьи в ленте</h2>
+        {feedPostsLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-64 animate-pulse rounded-xl bg-muted" />
+            ))}
+          </div>
+        ) : feedPosts.length === 0 ? (
+          <p className="rounded-xl border border-dashed bg-card/80 px-6 py-8 text-center text-sm text-muted-foreground">
+            У этого участника пока нет опубликованных статей в ленте.
+          </p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {feedPosts.map((post) => (
+              <Card key={post.id} className="group flex h-full flex-col overflow-hidden transition-shadow hover:shadow-md">
+                <Link href={`/lenta/${post.id}`} className="relative block aspect-[16/10] overflow-hidden bg-muted">
+                  {post.coverImageUrl ? (
+                    <img
+                      src={post.coverImageUrl}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground">
+                      <Newspaper className="h-12 w-12 opacity-35" aria-hidden />
+                    </div>
+                  )}
+                </Link>
+                <CardContent className="flex flex-1 flex-col gap-2 p-4">
+                  <Link href={`/lenta/${post.id}`}>
+                    <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground group-hover:text-primary">
+                      {post.title}
+                    </h3>
+                  </Link>
+                  {post.excerpt ? (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">{post.excerpt}</p>
+                  ) : null}
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                    <Link
+                      href={`/lenta/${post.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      Читать
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                    </Link>
+                    <time className="text-xs text-muted-foreground" dateTime={post.publishedAt}>
+                      {formatShortDate(post.publishedAt)}
+                    </time>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
 
       {profile.listings?.length > 0 && (
         <div className="mt-8">

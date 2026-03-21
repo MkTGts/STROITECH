@@ -24,8 +24,8 @@ export function ListingsFeed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api<any>("/listings", { params: { limit: "8" } })
-      .then((res) => setListings(res.data.items))
+    api<any>("/listings", { params: { limit: "4" } })
+      .then((res) => setListings((res.data.items ?? []).slice(0, 4)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

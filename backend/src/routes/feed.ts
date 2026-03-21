@@ -13,6 +13,7 @@ const authorSelect = {
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  authorId: z.string().uuid().optional(),
 });
 
 const postIdParamsSchema = z.object({
@@ -188,7 +189,8 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     const skip = (q.page - 1) * q.limit;
     const optionalUserId = getOptionalUserId(request);
 
-    const where = { status: "published" as const };
+    const where: { status: "published"; authorId?: string } = { status: "published" };
+    if (q.authorId) where.authorId = q.authorId;
 
     const [rows, total] = await Promise.all([
       prisma.feedPost.findMany({
