@@ -16,9 +16,35 @@ const sendMessageSchema = z.object({
   content: z.string().min(1),
 });
 
-const chatBotSchema = z.object({
-  content: z.string().min(1),
+const assistantTurnSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(12000),
 });
+
+const chatBotSchema = z
+  .object({
+    /** Устаревший формат: одна реплика без истории */
+    content: z.string().min(1).max(12000).optional(),
+    /** До 7 реплик по порядку; последняя — всегда пользователь (текущий запрос) */
+    turns: z.array(assistantTurnSchema).min(1).max(7).optional(),
+  })
+  .superRefine((val, ctx) => {
+    const hasTurns = Boolean(val.turns?.length);
+    const hasContent = Boolean(val.content?.trim());
+    if (!hasTurns && !hasContent) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Укажите turns или content",
+      });
+    }
+    if (hasTurns && val.turns![val.turns!.length - 1].role !== "user") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Последняя реплика в turns должна быть от пользователя",
+        path: ["turns"],
+      });
+    }
+  });
 
 const supportSchema = z.object({
   content: z.string().min(1),
@@ -483,7 +509,11 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
     const body = chatBotSchema.parse(request.body);
 
     try {
-      const answer = await callAssistant(userId, body.content);
+      const turns =
+        body.turns && body.turns.length > 0
+          ? body.turns.slice(-7)
+          : [{ role: "user" as const, content: body.content!.trim() }];
+      const answer = await callAssistant(userId, turns);
       return reply.status(200).send({
         success: true,
         data: { reply: answer },

@@ -30,11 +30,15 @@ export async function api<T>(endpoint: string, options: FetchOptions = {}): Prom
 
   const response = await fetch(url, { ...rest, headers });
 
-  if (response.status === 401 && token) {
+  if (response.status === 401 && token && !rest.signal?.aborted) {
     const refreshed = await _tryRefreshToken();
     if (refreshed) {
       headers["Authorization"] = `Bearer ${refreshed}`;
       const retryResponse = await fetch(url, { ...rest, headers });
+      if (!retryResponse.ok) {
+        const error = await retryResponse.json().catch(() => ({ message: "Ошибка сервера" }));
+        throw new ApiError(retryResponse.status, error.message || "Ошибка запроса", error.errors);
+      }
       return retryResponse.json();
     }
   }

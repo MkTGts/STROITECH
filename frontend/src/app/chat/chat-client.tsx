@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { useAuthStore } from "@/lib/store";
 import { useWsEvent } from "@/lib/hooks";
 import { sendWsMessage } from "@/lib/ws";
-import { api, uploadFile, uploadAttachment } from "@/lib/api";
+import { api, uploadFile, uploadAttachment, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -50,6 +50,25 @@ const BOT_WELCOME_MESSAGE: MessageItem = {
   createdAt: new Date().toISOString(),
 };
 
+const ASSISTANT_CHAT_TIMEOUT_MS = 120_000;
+
+function assistantChatStorageKey(userId: string): string {
+  return `assistantChat:${userId}`;
+}
+
+function sortMessagesByTime(items: MessageItem[]): MessageItem[] {
+  return items.slice().sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+function persistAssistantChat(userId: string, items: MessageItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(assistantChatStorageKey(userId), JSON.stringify(items));
+  } catch {
+    /* quota / приватный режим */
+  }
+}
+
 const SUPPORT_WELCOME_MESSAGE: MessageItem = {
   id: "support-welcome",
   senderId: SUPPORT_SENDER_ID,
@@ -82,10 +101,49 @@ export function ChatPageClient() {
     companyName: string | null;
     avatarUrl: string | null;
   } | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push("/auth/login");
   }, [isAuthenticated, isLoading, router]);
+
+  /** После возврата на вкладку подтягиваем историю из localStorage (ответ мог сохраниться при размонтировании). */
+  useEffect(() => {
+    if (!user || activeConvId !== BOT_CONVERSATION_ID) return;
+
+    function syncAssistantFromStorage(): void {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      try {
+        const raw = window.localStorage.getItem(assistantChatStorageKey(user.id));
+        if (!raw) return;
+        const stored = JSON.parse(raw) as MessageItem[];
+        if (!Array.isArray(stored) || stored.length === 0) return;
+        setMessages((prev) => {
+          const sorted = sortMessagesByTime(stored);
+          const prevLast = prev[prev.length - 1]?.id;
+          const nextLast = sorted[sorted.length - 1]?.id;
+          if (prevLast === nextLast && sorted.length === prev.length) return prev;
+          return sorted;
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    document.addEventListener("visibilitychange", syncAssistantFromStorage);
+    window.addEventListener("focus", syncAssistantFromStorage);
+    return () => {
+      document.removeEventListener("visibilitychange", syncAssistantFromStorage);
+      window.removeEventListener("focus", syncAssistantFromStorage);
+    };
+  }, [activeConvId, user?.id]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -249,7 +307,7 @@ export function ChatPageClient() {
         return;
       }
       if (typeof window !== "undefined") {
-        const key = `assistantChat:${user.id}`;
+        const key = assistantChatStorageKey(user.id);
         const raw = window.localStorage.getItem(key);
         if (raw) {
           try {
@@ -349,43 +407,72 @@ export function ChatPageClient() {
       if (activeConvId === BOT_CONVERSATION_ID) {
         if (!user) return;
         setBotThinking(true);
+        const textToSend = newMessage.trim();
         const userMessage: MessageItem = {
           id: `local-${Date.now()}`,
           senderId: user.id,
-          content: newMessage,
+          content: textToSend,
           isRead: true,
           createdAt: new Date().toISOString(),
         };
-        // очищаем инпут сразу, как и в обычных диалогах
         setNewMessage("");
         let nextMessages: MessageItem[] = [];
         setMessages((prev) => {
-          nextMessages = [...prev, userMessage].slice().sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          );
+          nextMessages = sortMessagesByTime([...prev, userMessage]);
+          persistAssistantChat(user.id, nextMessages);
           return nextMessages;
         });
-        const res = await api<any>("/chat/bot", {
-          method: "POST",
-          body: JSON.stringify({ content: newMessage }),
-        });
-        const botMessage: MessageItem = {
-          id: `bot-${Date.now()}`,
-          senderId: BOT_SENDER_ID,
-          content: res.data.reply,
-          isRead: true,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => {
-          const updated = [...prev, botMessage].slice().sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          );
-          if (typeof window !== "undefined" && user) {
-            const key = `assistantChat:${user.id}`;
-            window.localStorage.setItem(key, JSON.stringify(updated));
+
+        const turns = nextMessages.slice(-7).map((m) => ({
+          role: m.senderId === BOT_SENDER_ID ? ("assistant" as const) : ("user" as const),
+          content: m.content,
+        }));
+
+        const controller = new AbortController();
+        const timeoutId =
+          typeof window !== "undefined"
+            ? window.setTimeout(() => controller.abort(), ASSISTANT_CHAT_TIMEOUT_MS)
+            : 0;
+
+        try {
+          const res = await api<any>("/chat/bot", {
+            method: "POST",
+            body: JSON.stringify({ turns }),
+            signal: controller.signal,
+          });
+          const replyRaw = res?.data?.reply;
+          const replyText = typeof replyRaw === "string" ? replyRaw.trim() : "";
+          if (!replyText) {
+            toast.error("Ассистент вернул пустой ответ. Попробуйте ещё раз.");
+            return;
           }
-          return updated;
-        });
+
+          const botMessage: MessageItem = {
+            id: `bot-${Date.now()}`,
+            senderId: BOT_SENDER_ID,
+            content: replyText,
+            isRead: true,
+            createdAt: new Date().toISOString(),
+          };
+          const updated = sortMessagesByTime([...nextMessages, botMessage]);
+          persistAssistantChat(user.id, updated);
+          if (mountedRef.current) {
+            setMessages(updated);
+          }
+        } catch (botErr: unknown) {
+          const aborted =
+            (botErr instanceof DOMException && botErr.name === "AbortError") ||
+            (botErr instanceof Error && botErr.name === "AbortError");
+          const apiMsg = botErr instanceof ApiError ? botErr.message : null;
+          const errMsg = botErr instanceof Error ? botErr.message : null;
+          toast.error(
+            aborted
+              ? "Ассистент не ответил вовремя. Проверьте сеть и попробуйте снова."
+              : apiMsg || errMsg || "Не удалось получить ответ ассистента.",
+          );
+        } finally {
+          if (timeoutId) window.clearTimeout(timeoutId);
+        }
       } else if (activeConvId === SUPPORT_CONVERSATION_ID) {
         if (!user) return;
         const userMessage: MessageItem = {
