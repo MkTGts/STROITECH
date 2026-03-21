@@ -6,3 +6,4 @@ export * from "./types/subscription";
 export * from "./types/notification";
 export * from "./types/category";
 export * from "./types/api";
+export * from "./types/feed";

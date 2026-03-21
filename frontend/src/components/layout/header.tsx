@@ -7,11 +7,11 @@ import {
   MessageCircle,
   Bell,
   Menu,
-  Search,
   LogIn,
   LayoutGrid,
   Users,
   HardHat,
+  Newspaper,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,6 +24,7 @@ import { useState } from "react";
 const NAV_ITEMS = [
   { href: "/", label: "Главная", icon: HardHat },
   { href: "/listings", label: "Объявления", icon: LayoutGrid },
+  { href: "/lenta", label: "Лента", icon: Newspaper },
   { href: "/profiles", label: "Участники", icon: Users },
   { href: "/objects", label: "Объекты", icon: Building2 },
   { href: "/chat", label: "Чат", icon: MessageCircle },
@@ -46,7 +47,10 @@ export function Header() {
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_ITEMS.map((item) => {
             const href = item.href === "/chat" && !isAuthenticated ? "/auth/login" : item.href;
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === "/lenta"
+                ? pathname === "/lenta" || pathname.startsWith("/lenta/")
+                : pathname === item.href;
             return (
               <Link key={item.href} href={href}>
                 <Button
@@ -117,6 +121,10 @@ export function Header() {
             <nav className="mt-8 flex flex-col gap-2">
               {NAV_ITEMS.map((item) => {
                 const href = item.href === "/chat" && !isAuthenticated ? "/auth/login" : item.href;
+                const mobileActive =
+                  item.href === "/lenta"
+                    ? pathname === "/lenta" || pathname.startsWith("/lenta/")
+                    : pathname === item.href;
                 return (
                   <Link
                     key={item.href}
@@ -124,7 +132,7 @@ export function Header() {
                     onClick={() => setMobileOpen(false)}
                   >
                     <Button
-                      variant={pathname === item.href ? "secondary" : "ghost"}
+                      variant={mobileActive ? "secondary" : "ghost"}
                       className="w-full justify-start gap-3"
                     >
                       <item.icon className="h-5 w-5" />

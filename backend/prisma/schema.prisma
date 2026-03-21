@@ -68,6 +68,10 @@ enum NotificationType {
   system
 }
 
+enum FeedPostStatus {
+  published
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
@@ -91,8 +95,79 @@ model User {
   conversationsAsUser2  Conversation[]       @relation("ConversationParticipant2")
   subscriptions         Subscription[]
   notifications         Notification[]
+  feedPosts             FeedPost[]
+  feedPostLikes         FeedPostLike[]
+  feedComments          FeedComment[]
+  feedPostViews         FeedPostView[]
 
   @@map("users")
+}
+
+model FeedPost {
+  id             String          @id @default(uuid()) @db.Uuid
+  authorId       String          @map("author_id") @db.Uuid
+  title          String          @db.VarChar(200)
+  slug           String?         @unique @db.VarChar(220)
+  excerpt        String?         @db.VarChar(500)
+  body           String          @db.Text
+  coverImageUrl  String?         @map("cover_image_url")
+  status         FeedPostStatus  @default(published)
+  publishedAt    DateTime        @default(now()) @map("published_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  author   User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes    FeedPostLike[]
+  comments FeedComment[]
+  views    FeedPostView[]
+
+  @@index([authorId])
+  @@index([publishedAt(sort: Desc)])
+  @@index([status, publishedAt(sort: Desc)])
+  @@map("feed_posts")
+}
+
+model FeedPostView {
+  id             String   @id @default(uuid()) @db.Uuid
+  postId         String   @map("post_id") @db.Uuid
+  viewerId       String   @map("viewer_id") @db.Uuid
+  firstViewedAt  DateTime @default(now()) @map("first_viewed_at")
+
+  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  viewer User     @relation(fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, viewerId])
+  @@index([postId])
+  @@map("feed_post_views")
+}
+
+model FeedPostLike {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("feed_post_likes")
+}
+
+model FeedComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([postId, createdAt])
+  @@map("feed_comments")
 }
 
 model Manager {

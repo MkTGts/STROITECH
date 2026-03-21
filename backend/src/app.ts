@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
 import websocket from "@fastify/websocket";
+import { ZodError } from "zod";
 import { authRoutes } from "./routes/auth";
 import { userRoutes } from "./routes/users";
 import { listingRoutes } from "./routes/listings";
@@ -12,6 +13,7 @@ import { objectRoutes } from "./routes/objects";
 import { subscriptionRoutes } from "./routes/subscriptions";
 import { notificationRoutes } from "./routes/notifications";
 import { uploadRoutes } from "./routes/upload";
+import { feedRoutes } from "./routes/feed";
 import { wsHandler } from "./ws/handler";
 
 /**
@@ -65,9 +67,20 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(subscriptionRoutes, { prefix: "/api/subscriptions" });
   await app.register(notificationRoutes, { prefix: "/api/notifications" });
   await app.register(uploadRoutes, { prefix: "/api/upload" });
+  await app.register(feedRoutes, { prefix: "/api/feed" });
   await app.register(wsHandler, { prefix: "/ws" });
 
   app.get("/api/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
+
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ZodError) {
+      const issue = error.issues[0];
+      const path = issue?.path?.length ? `${issue.path.join(".")}: ` : "";
+      const message = issue ? `${path}${issue.message}`.trim() : "Некорректные данные";
+      return reply.status(400).send({ success: false, message });
+    }
+    reply.send(error);
+  });
 
   return app;
 }
