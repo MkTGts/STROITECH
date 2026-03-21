@@ -89,7 +89,7 @@ export function Header() {
                       {(user?.name || "П").charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  {user?.name?.split(" ")[0] || "Профиль"}
+                  <span className="max-w-[10rem] truncate">{user?.name || "Профиль"}</span>
                 </Button>
               </Link>
               <Button variant="outline" size="sm" onClick={logout}>

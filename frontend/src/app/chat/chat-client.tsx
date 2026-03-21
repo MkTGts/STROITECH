@@ -642,9 +642,7 @@ export function ChatPageClient() {
                 </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <p className="truncate text-sm font-medium">
-                      {conv.participant.companyName || conv.participant.name}
-                    </p>
+                    <p className="truncate text-sm font-medium">{conv.participant.name}</p>
                     {conv.unreadCount > 0 && (
                       <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                         {conv.unreadCount}
@@ -708,9 +706,7 @@ export function ChatPageClient() {
                             </>
                           )}
                         </Avatar>
-                        <p className="truncate font-semibold">
-                          {p.companyName || p.name}
-                        </p>
+                        <p className="truncate font-semibold">{p.name}</p>
                       </>
                     );
                   })()
@@ -739,7 +735,7 @@ export function ChatPageClient() {
                     ) : null}
                     <p className="truncate font-semibold">
                       {draftRecipient
-                        ? `Новый диалог — ${draftRecipient.companyName || draftRecipient.name}`
+                        ? `Новый диалог — ${draftRecipient.name}`
                         : "Новый диалог"}
                     </p>
                   </>

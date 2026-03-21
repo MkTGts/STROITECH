@@ -260,13 +260,8 @@ export default function ListingDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <Link href={`/profiles/${listing.user.id}`} className="block hover:text-primary">
-                      {listing.user.companyName && (
-                        <span className="font-semibold">{listing.user.companyName}</span>
-                      )}
-                      <span className={listing.user.companyName ? "block text-sm text-muted-foreground" : "font-semibold"}>
-                        {listing.user.name}
-                      </span>
+                    <Link href={`/profiles/${listing.user.id}`} className="block font-semibold hover:text-primary">
+                      {listing.user.name}
                     </Link>
                     <p className="text-sm text-muted-foreground">{ROLE_LABELS[listing.user.role]}</p>
                   </div>

@@ -113,17 +113,17 @@ export default function ProfileDetailPage() {
             </Avatar>
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold">{profile.companyName || profile.name}</h1>
+                <h1 className="text-2xl font-bold">{profile.name}</h1>
                 <Badge variant="secondary">{ROLE_LABELS[profile.role]}</Badge>
                 {profile.isVerified && <Badge className="bg-green-500 text-white">Проверен</Badge>}
               </div>
+              {profile.companyName && (
+                <p className="mt-1 text-muted-foreground">{profile.companyName}</p>
+              )}
               {profile.region && (
                 <p className="mt-1 text-sm text-muted-foreground">
                   Регион: {profile.region}
                 </p>
-              )}
-              {profile.companyName && (
-                <p className="mt-1 text-muted-foreground">{profile.name}</p>
               )}
               {profile.description && (
                 <p className="mt-3 whitespace-pre-wrap text-muted-foreground">{profile.description}</p>
@@ -164,6 +164,17 @@ export default function ProfileDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {profile.listings?.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-4 text-xl font-bold">Объявления</h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {profile.listings.map((listing: any) => (
+              <ListingCard key={listing.id} listing={{ ...listing, user: profile }} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-8">
         <h2 className="mb-4 text-xl font-bold">Статьи в ленте</h2>
@@ -221,17 +232,6 @@ export default function ProfileDetailPage() {
           </div>
         )}
       </div>
-
-      {profile.listings?.length > 0 && (
-        <div className="mt-8">
-          <h2 className="mb-4 text-xl font-bold">Объявления</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {profile.listings.map((listing: any) => (
-              <ListingCard key={listing.id} listing={{ ...listing, user: profile }} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

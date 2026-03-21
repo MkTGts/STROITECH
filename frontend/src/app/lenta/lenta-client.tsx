@@ -208,9 +208,6 @@ export function LentaPageClient() {
                       </Avatar>
                       <div className="min-w-0 text-left">
                         <p className="truncate text-sm font-medium">{post.author.name}</p>
-                        {post.author.companyName && (
-                          <p className="truncate text-xs text-muted-foreground">{post.author.companyName}</p>
-                        )}
                       </div>
                     </Link>
                     <time className="shrink-0 text-xs text-muted-foreground" dateTime={post.publishedAt}>

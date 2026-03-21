@@ -244,7 +244,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <Label>Имя / Название</Label>
+                    <Label>Имя и фамилия</Label>
                     <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
                   </div>
                   <div>
@@ -294,8 +294,13 @@ export default function DashboardPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <h3 className="text-lg font-semibold">{user.companyName || user.name}</h3>
-                    <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+                    <h3 className="text-lg font-semibold">{user.name}</h3>
+                    {user.companyName ? (
+                      <p className="mt-0.5 text-sm text-muted-foreground">{user.companyName}</p>
+                    ) : null}
+                    <Badge variant="secondary" className="mt-1">
+                      {ROLE_LABELS[user.role]}
+                    </Badge>
                     {user.region && (
                       <p className="mt-1 text-xs text-muted-foreground">Регион: {user.region}</p>
                     )}

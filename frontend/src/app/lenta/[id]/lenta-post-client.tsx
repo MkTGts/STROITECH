@@ -466,12 +466,7 @@ function LentaPostInner({ id }: { id: string }) {
               {post.author.avatarUrl ? <AvatarImage src={post.author.avatarUrl} alt="" /> : null}
               <AvatarFallback className="bg-primary/10 text-primary">{post.author.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <span>
-              <span className="font-medium">{post.author.name}</span>
-              {post.author.companyName && (
-                <span className="block text-xs text-muted-foreground">{post.author.companyName}</span>
-              )}
-            </span>
+            <span className="font-medium">{post.author.name}</span>
           </Link>
           <time dateTime={post.publishedAt}>{formatFeedDate(post.publishedAt)}</time>
           <FeedLikeButton

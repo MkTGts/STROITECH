@@ -174,9 +174,7 @@ export default function ProfilesPage() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <Link href={`/profiles/${user.id}`}>
-                        <h3 className="truncate font-semibold hover:text-primary">
-                          {user.companyName || user.name}
-                        </h3>
+                        <h3 className="truncate font-semibold hover:text-primary">{user.name}</h3>
                       </Link>
                       <Badge variant="secondary" className="mt-1">
                         {ROLE_LABELS[user.role] || user.role}
