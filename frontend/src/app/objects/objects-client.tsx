@@ -15,8 +15,6 @@ import { cn } from "@/lib/utils";
 import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const STAGE_LABELS: Record<string, string> = {
-  realty: "Недвижимость",
-  project: "Проект",
   foundation: "Фундамент",
   walls: "Стены",
   roof: "Кровля",

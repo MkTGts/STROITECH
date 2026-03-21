@@ -29,8 +29,6 @@ enum ObjectStatus {
 }
 
 enum StageType {
-  realty
-  project
   foundation
   walls
   roof
@@ -153,7 +151,7 @@ model ConstructionObject {
   title        String
   description  String?      @db.Text
   region       String?
-  currentStage StageType    @default(realty) @map("current_stage")
+  currentStage StageType    @default(foundation) @map("current_stage")
   status       ObjectStatus @default(active)
   isVisible    Boolean      @default(true) @map("is_visible")
   createdAt    DateTime     @default(now()) @map("created_at")

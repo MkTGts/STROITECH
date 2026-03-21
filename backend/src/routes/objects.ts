@@ -4,8 +4,10 @@ import { prisma } from "../lib/prisma";
 import { getUserId, getOptionalUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
 
+const stageTypeSchema = z.enum(["foundation", "walls", "roof", "engineering", "finish", "furniture"]);
+
 const stageItemSchema = z.object({
-  stageType: z.enum(["realty", "project", "foundation", "walls", "roof", "engineering", "finish", "furniture"]),
+  stageType: stageTypeSchema,
   materialsRequest: z.string().optional(),
   buildersRequest: z.string().optional(),
   equipmentRequest: z.string().optional(),
@@ -35,7 +37,7 @@ const setStatusSchema = z.object({
 });
 
 const createStageSchema = z.object({
-  stageType: z.enum(["realty", "project", "foundation", "walls", "roof", "engineering", "finish", "furniture"]),
+  stageType: stageTypeSchema,
   materialsRequest: z.string().optional(),
   buildersRequest: z.string().optional(),
   equipmentRequest: z.string().optional(),
@@ -223,7 +225,17 @@ export async function objectRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const status = isDraft ? "draft" : "active";
-      const stages = body.stages.length > 0 ? body.stages : [{ stageType: "realty" as const, materialsRequest: undefined, buildersRequest: undefined, equipmentRequest: undefined }];
+      const stages =
+        body.stages.length > 0
+          ? body.stages
+          : [
+              {
+                stageType: "foundation" as const,
+                materialsRequest: undefined,
+                buildersRequest: undefined,
+                equipmentRequest: undefined,
+              },
+            ];
       const currentStage = stages[0].stageType;
 
       const obj = await prisma.constructionObject.create({

@@ -24,8 +24,6 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 const STAGE_LABELS: Record<string, string> = {
-  realty: "Поиск недвижимости",
-  project: "Проект",
   foundation: "Фундамент",
   walls: "Стены и перекрытия",
   roof: "Кровля",

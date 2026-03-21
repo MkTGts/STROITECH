@@ -6,8 +6,6 @@ export enum ObjectStatus {
 }
 
 export enum StageType {
-  REALTY = "realty",
-  PROJECT = "project",
   FOUNDATION = "foundation",
   WALLS = "walls",
   ROOF = "roof",

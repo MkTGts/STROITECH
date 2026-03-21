@@ -203,7 +203,7 @@ export default function CreateObjectPage() {
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Выберите этапы строительства. Для каждого этапа можно указать запрос на материалы, строителей и технику.
-                Исполнителям придёт уведомление, как в Яндекс.Такси.
+                Исполнителям придёт уведомление.
               </p>
               <div className="space-y-3">
                 {stages.map((stage, i) => {
