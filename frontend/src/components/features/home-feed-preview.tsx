@@ -85,12 +85,16 @@ export function HomeFeedPreview() {
             <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
               <Link
                 href={`/lenta/${post.id}`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
               >
                 Читать
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
-              <div className="flex min-w-0 items-center gap-2">
+              <Link
+                href={`/profiles/${post.author.id}`}
+                aria-label={`Профиль: ${post.author.name}`}
+                className="flex min-w-0 shrink items-center gap-2 rounded-md py-0.5 pl-1 -mr-1 text-right transition-colors hover:bg-muted/60 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <Avatar className="h-7 w-7 shrink-0">
                   {post.author.avatarUrl ? <AvatarImage src={post.author.avatarUrl} alt="" /> : null}
                   <AvatarFallback className="bg-primary/10 text-[10px] text-primary">
@@ -103,7 +107,7 @@ export function HomeFeedPreview() {
                     {formatShortDate(post.publishedAt)}
                   </time>
                 </div>
-              </div>
+              </Link>
             </div>
           </CardContent>
         </Card>
