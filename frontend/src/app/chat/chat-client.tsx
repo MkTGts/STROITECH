@@ -417,12 +417,11 @@ export function ChatPageClient() {
           createdAt: new Date().toISOString(),
         };
         setNewMessage("");
-        let nextMessages: MessageItem[] = [];
-        setMessages((prev) => {
-          nextMessages = sortMessagesByTime([...prev, userMessage]);
-          persistAssistantChat(user.id, nextMessages);
-          return nextMessages;
-        });
+        // Не полагаемся на присваивание внутри колбэка setMessages: в React 18 оно может
+        // выполниться позже, из‑за чего уходит turns: [] и падает валидация на бэкенде.
+        const nextMessages = sortMessagesByTime([...messages, userMessage]);
+        setMessages(nextMessages);
+        persistAssistantChat(user.id, nextMessages);
 
         const turns = nextMessages.slice(-7).map((m) => ({
           role: m.senderId === BOT_SENDER_ID ? ("assistant" as const) : ("user" as const),
