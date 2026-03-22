@@ -18,11 +18,6 @@ export const metadata: Metadata = {
   description:
     "Доска объявлений с умным чатом и встроенным сервисом по управлению объектами. Находите строителей, поставщиков и технику по лучшим ценам.",
   keywords: ["строительство", "стройматериалы", "строители", "техника", "подрядчики", "объекты"],
-  icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
-  },
 };
 
 export default function RootLayout({

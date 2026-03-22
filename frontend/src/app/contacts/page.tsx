@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Mail, ArrowRight } from "lucide-react";
+import { Mail, ArrowRight, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const CONTACT_EMAIL = "info@объекты.online";
+const CONTACT_EMAIL = "maksimkor96@yandex.ru";
 
 export default function ContactsPage() {
   return (
@@ -15,7 +15,7 @@ export default function ContactsPage() {
           <div>
             <h1 className="text-3xl font-bold md:text-4xl">Контакты</h1>
             <p className="mt-1 text-muted-foreground">
-              Свяжитесь с нами по любым вопросам
+              Свяжитесь с нами по любым вопросам — в чате технической поддержки или по электронной почте
             </p>
           </div>
         </div>
@@ -42,6 +42,25 @@ export default function ContactsPage() {
           </section>
 
           <section>
+            <h2 className="mb-3 text-xl font-semibold text-foreground">Чат с технической поддержкой</h2>
+            <p className="leading-relaxed">
+              По вопросам работы сервиса вы можете обратиться в{" "}
+              <strong className="text-foreground">техническую поддержку прямо в чате</strong>: войдите в аккаунт,
+              откройте раздел{" "}
+              <Link href="/chat" className="font-medium text-primary hover:underline">
+                Чат
+              </Link>{" "}
+              и в списке диалогов выберите{" "}
+              <span className="font-medium text-foreground">«Тех. поддержка»</span>. Все сообщения из этого чата
+              автоматически отправляются команде сервиса.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed">
+              Среднее время ответа — около часа в рабочее время. Если удобнее письменно не в интерфейсе — используйте
+              почту выше.
+            </p>
+          </section>
+
+          <section>
             <h2 className="mb-3 text-xl font-semibold text-foreground">Другие разделы</h2>
             <p className="leading-relaxed">
               Ответы на частые вопросы — в разделе{" "}
@@ -58,8 +77,14 @@ export default function ContactsPage() {
         </div>
 
         <div className="mt-12 flex flex-wrap gap-4">
-          <a href={`mailto:${CONTACT_EMAIL}`}>
+          <Link href="/chat">
             <Button className="gap-2">
+              <LifeBuoy className="h-4 w-4" />
+              Чат с поддержкой
+            </Button>
+          </Link>
+          <a href={`mailto:${CONTACT_EMAIL}`}>
+            <Button variant="outline" className="gap-2">
               <Mail className="h-4 w-4" />
               Написать на почту
             </Button>
