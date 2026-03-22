@@ -13,6 +13,7 @@ import {
   HardHat,
   Newspaper,
 } from "lucide-react";
+import { SiteLogo } from "@/components/branding/site-logo";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -40,7 +41,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
-          <Building2 className="h-7 w-7 text-primary" />
+          <SiteLogo className="h-8 max-h-8" priority />
           <span className="text-lg font-bold text-primary">Объекты.online</span>
         </Link>
 

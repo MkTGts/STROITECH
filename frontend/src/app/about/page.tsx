@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Building2, Target, Users, Heart, ArrowRight } from "lucide-react";
+import { SiteLogo } from "@/components/branding/site-logo";
 import { Button } from "@/components/ui/button";
 
 export default function AboutPage() {
@@ -8,7 +9,7 @@ export default function AboutPage() {
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center gap-3">
           <div className="rounded-xl bg-primary/10 p-3">
-            <Building2 className="h-10 w-10 text-primary" />
+            <SiteLogo className="h-10 max-h-10 max-w-[180px]" />
           </div>
           <div>
             <h1 className="text-3xl font-bold md:text-4xl">О нас</h1>

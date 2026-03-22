@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Building2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { SiteLogo } from "@/components/branding/site-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +38,7 @@ export default function LoginPage() {
     <div className="flex min-h-[70vh] items-center justify-center px-4 py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <Building2 className="mx-auto h-10 w-10 text-primary" />
+          <SiteLogo className="mx-auto h-12 max-h-12 max-w-[200px]" />
           <CardTitle className="mt-2 text-2xl">Вход в Объекты.online</CardTitle>
         </CardHeader>
         <CardContent>

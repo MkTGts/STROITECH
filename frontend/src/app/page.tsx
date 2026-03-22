@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ListingsFeed } from "@/components/features/listings-feed";
 import { HomeFeedPreview } from "@/components/features/home-feed-preview";
+import { SiteLogo } from "@/components/branding/site-logo";
 import { useAuthStore } from "@/lib/store";
 
 const CATEGORIES = [
@@ -115,7 +116,11 @@ export default function HomePage() {
             {FEATURES.map((feat) => (
               <div key={feat.title} className="flex flex-col items-center text-center">
                 <div className="mb-3 rounded-full bg-primary/10 p-3">
-                  <feat.icon className="h-6 w-6 text-primary" />
+                  {feat.title === "Управление объектами" ? (
+                    <SiteLogo className="h-6 max-h-6 max-w-[7rem]" />
+                  ) : (
+                    <feat.icon className="h-6 w-6 text-primary" />
+                  )}
                 </div>
                 <h3 className="font-semibold">{feat.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{feat.description}</p>

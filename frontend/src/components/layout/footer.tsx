@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2 } from "lucide-react";
+import { SiteLogo } from "@/components/branding/site-logo";
 
 export function Footer() {
   return (
@@ -8,7 +8,7 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-4">
           <div>
             <Link href="/" className="flex items-center gap-2">
-              <Building2 className="h-6 w-6 text-primary" />
+              <SiteLogo className="h-7 max-h-7" />
               <span className="text-lg font-bold text-primary">Объекты.online</span>
             </Link>
             <p className="mt-3 text-sm text-muted-foreground">
