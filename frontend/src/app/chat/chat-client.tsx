@@ -117,11 +117,12 @@ export function ChatPageClient() {
   /** После возврата на вкладку подтягиваем историю из localStorage (ответ мог сохраниться при размонтировании). */
   useEffect(() => {
     if (!user || activeConvId !== BOT_CONVERSATION_ID) return;
+    const userId = user.id;
 
     function syncAssistantFromStorage(): void {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       try {
-        const raw = window.localStorage.getItem(assistantChatStorageKey(user.id));
+        const raw = window.localStorage.getItem(assistantChatStorageKey(userId));
         if (!raw) return;
         const stored = JSON.parse(raw) as MessageItem[];
         if (!Array.isArray(stored) || stored.length === 0) return;
