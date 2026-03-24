@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   { href: "/listings", label: "Объявления", icon: LayoutGrid },
   { href: "/lenta", label: "Лента", icon: Newspaper },
   { href: "/profiles", label: "Участники", icon: Users },
-  { href: "/objects", label: "Объекты", icon: Building2 },
+  { href: "/objects", label: "Управление объектами", icon: Building2 },
   { href: "/chat", label: "Чат", icon: MessageCircle },
 ];
 

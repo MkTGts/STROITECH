@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { Search, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -31,8 +30,7 @@ const TABS = [
 ];
 
 export default function ProfilesPage() {
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -41,13 +39,6 @@ export default function ProfilesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const debouncedSearch = useDebounce(search, 300);
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/auth/login");
-      return;
-    }
-  }, [isAuthenticated, isLoading, router]);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -68,10 +59,8 @@ export default function ProfilesPage() {
   }, [activeTab, debouncedSearch, page, region]);
 
   useEffect(() => {
-    if (isAuthenticated) fetchUsers();
-  }, [isAuthenticated, fetchUsers]);
-
-  if (!isAuthenticated) return null;
+    fetchUsers();
+  }, [fetchUsers]);
 
   const isModerator = user?.role === "moderator";
   const visibleUsers = isModerator
