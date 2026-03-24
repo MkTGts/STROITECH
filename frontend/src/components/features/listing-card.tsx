@@ -15,7 +15,7 @@ type ListingCardProps = {
     description: string;
     region?: string | null;
     photos: string[];
-    viewCount: number;
+    viewCount?: number;
     price: number | null;
     isPromoted: boolean;
     createdAt: string;
