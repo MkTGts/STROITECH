@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
-import { getUserId } from "../lib/auth";
+import { getUserId, getUserRole } from "../lib/auth";
 
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
@@ -9,6 +9,15 @@ const updateProfileSchema = z.object({
   region: z.string().min(2).optional(),
   companyName: z.union([z.string(), z.null()]).optional(),
   description: z.string().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+});
+const adminUpdateUserSchema = z.object({
+  name: z.string().min(2).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(10).optional(),
+  region: z.union([z.string().min(2), z.null()]).optional(),
+  companyName: z.union([z.string(), z.null()]).optional(),
+  description: z.union([z.string(), z.null()]).optional(),
   avatarUrl: z.string().url().nullable().optional(),
 });
 
@@ -79,7 +88,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
-  app.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/:id", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
     const user = await prisma.user.findUnique({
@@ -95,7 +104,12 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(404).send({ success: false, message: "Пользователь не найден" });
     }
 
+    const isAuthenticated = Boolean(request.user);
     const { passwordHash, ...safe } = user;
+    if (!isAuthenticated) {
+      const { email: _email, phone: _phone, ...publicSafe } = safe;
+      return { success: true, data: publicSafe };
+    }
     return { success: true, data: safe };
   });
 
@@ -120,6 +134,50 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
 
       const { passwordHash, ...safe } = user;
       return { success: true, data: safe };
+    },
+  );
+
+  app.put(
+    "/:id",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const role = getUserRole(request);
+      if (role !== "moderator") {
+        return reply.status(403).send({ success: false, message: "Недостаточно прав" });
+      }
+
+      const { id } = request.params as { id: string };
+      const parsed = adminUpdateUserSchema.parse(request.body);
+      const data: Record<string, unknown> = { ...parsed };
+      if (parsed.companyName !== undefined) {
+        data.companyName =
+          parsed.companyName === null || String(parsed.companyName).trim() === ""
+            ? null
+            : String(parsed.companyName).trim();
+      }
+      if (parsed.description !== undefined) {
+        data.description =
+          parsed.description === null || String(parsed.description).trim() === ""
+            ? null
+            : String(parsed.description).trim();
+      }
+      if (parsed.region !== undefined) {
+        data.region =
+          parsed.region === null || String(parsed.region).trim() === ""
+            ? null
+            : String(parsed.region).trim();
+      }
+
+      try {
+        const updated = await prisma.user.update({
+          where: { id },
+          data,
+        });
+        const { passwordHash, ...safe } = updated;
+        return { success: true, data: safe };
+      } catch {
+        return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+      }
     },
   );
 

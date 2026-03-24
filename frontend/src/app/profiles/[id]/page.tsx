@@ -3,16 +3,22 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, MessageCircle, Newspaper, Phone } from "lucide-react";
+import { ArrowLeft, ArrowRight, MessageCircle, Newspaper, Phone, Mail, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ListingCard } from "@/components/features/listing-card";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import type { FeedPostListItem } from "shared";
+import { RUSSIAN_REGIONS } from "@/constants/regions";
+import { toast } from "sonner";
 
 function formatShortDate(iso: string) {
   try {
@@ -35,11 +41,21 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function ProfileDetailPage() {
   const { id } = useParams();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { user, isAuthenticated } = useAuthStore();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [feedPosts, setFeedPosts] = useState<FeedPostListItem[]>([]);
   const [feedPostsLoading, setFeedPostsLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    region: "",
+    companyName: "",
+    description: "",
+  });
 
   useEffect(() => {
     if (!id || typeof id !== "string") return;
@@ -49,7 +65,17 @@ export default function ProfileDetailPage() {
 
     api<any>(`/users/${id}`)
       .then((res) => {
-        if (!cancelled) setProfile(res.data);
+        if (!cancelled) {
+          setProfile(res.data);
+          setForm({
+            name: res.data?.name || "",
+            email: res.data?.email || "",
+            phone: res.data?.phone || "",
+            region: res.data?.region || "",
+            companyName: res.data?.companyName || "",
+            description: res.data?.description || "",
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setProfile(null);
@@ -92,6 +118,46 @@ export default function ProfileDetailPage() {
     );
   }
 
+  const isModerator = isAuthenticated && user?.role === "moderator";
+
+  async function handleSaveProfile(): Promise<void> {
+    if (!id || typeof id !== "string") return;
+    if (!form.name.trim()) {
+      toast.error("Укажите имя участника");
+      return;
+    }
+    if (!form.email.trim()) {
+      toast.error("Укажите email участника");
+      return;
+    }
+    if (!form.phone.trim()) {
+      toast.error("Укажите номер телефона участника");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await api<any>(`/users/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          region: form.region.trim() ? form.region.trim() : null,
+          companyName: form.companyName.trim() ? form.companyName.trim() : null,
+          description: form.description.trim() ? form.description.trim() : null,
+        }),
+      });
+      setProfile(res.data);
+      setEditMode(false);
+      toast.success("Профиль участника обновлён");
+    } catch (err: any) {
+      toast.error(err?.message || "Не удалось обновить профиль участника");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <Link href="/profiles">
@@ -116,17 +182,95 @@ export default function ProfileDetailPage() {
                 <h1 className="text-2xl font-bold">{profile.name}</h1>
                 <Badge variant="secondary">{ROLE_LABELS[profile.role]}</Badge>
                 {profile.isVerified && <Badge className="bg-green-500 text-white">Проверен</Badge>}
+                {isModerator && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setEditMode((prev) => !prev)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    {editMode ? "Отмена" : "Редактировать профиль"}
+                  </Button>
+                )}
               </div>
-              {profile.companyName && (
-                <p className="mt-1 text-muted-foreground">{profile.companyName}</p>
-              )}
-              {profile.region && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Регион: {profile.region}
-                </p>
-              )}
-              {profile.description && (
-                <p className="mt-3 whitespace-pre-wrap text-muted-foreground">{profile.description}</p>
+              {editMode && isModerator ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <Label>Имя</Label>
+                    <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Телефон</Label>
+                    <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Регион</Label>
+                    <Select value={form.region || "__none__"} onValueChange={(value) => setForm((p) => ({ ...p, region: value === "__none__" ? "" : value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите регион" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
+                        <SelectItem value="__none__">Не указан</SelectItem>
+                        {RUSSIAN_REGIONS.map((region) => (
+                          <SelectItem key={region} value={region}>
+                            {region}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Компания</Label>
+                    <Input value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Описание</Label>
+                    <Textarea
+                      rows={3}
+                      value={form.description}
+                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Button type="button" onClick={handleSaveProfile} disabled={saving}>
+                      {saving ? "Сохранение..." : "Сохранить изменения"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {profile.companyName && (
+                    <p className="mt-1 text-muted-foreground">{profile.companyName}</p>
+                  )}
+                  {profile.region && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Регион: {profile.region}
+                    </p>
+                  )}
+                  {isAuthenticated && (profile.phone || profile.email) && (
+                    <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                      {profile.phone && (
+                        <p className="flex items-center gap-1">
+                          <Phone className="h-4 w-4" /> {profile.phone}
+                        </p>
+                      )}
+                      {profile.email && (
+                        <p className="flex items-center gap-1">
+                          <Mail className="h-4 w-4" /> {profile.email}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {profile.description && (
+                    <p className="mt-3 whitespace-pre-wrap text-muted-foreground">{profile.description}</p>
+                  )}
+                </>
               )}
 
               {isAuthenticated && (
