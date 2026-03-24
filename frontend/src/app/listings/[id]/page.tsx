@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, MapPin, Clock, Star, Pencil, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ArrowLeft, MessageCircle, MapPin, Clock, Star, Pencil, ChevronLeft, ChevronRight, X, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,6 +242,10 @@ export default function ListingDetailPage() {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
+            </p>
+            <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+              <Eye className="h-4 w-4" />
+              Просмотров: {listing.viewCount ?? 0}
             </p>
           </div>
         </div>

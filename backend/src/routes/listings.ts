@@ -57,18 +57,19 @@ export async function listingRoutes(app: FastifyInstance): Promise<void> {
 
   app.get("/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
-    const listing = await prisma.listing.findUnique({
-      where: { id },
-      include: {
-        user: { select: { id: true, name: true, companyName: true, avatarUrl: true, role: true, description: true } },
-        category: { include: { parent: true } },
-      },
-    });
-
-    if (!listing) {
+    try {
+      const listing = await prisma.listing.update({
+        where: { id },
+        data: { viewCount: { increment: 1 } },
+        include: {
+          user: { select: { id: true, name: true, companyName: true, avatarUrl: true, role: true, description: true } },
+          category: { include: { parent: true } },
+        },
+      });
+      return { success: true, data: listing };
+    } catch {
       return reply.status(404).send({ success: false, message: "Объявление не найдено" });
     }
-    return { success: true, data: listing };
   });
 
   app.post(

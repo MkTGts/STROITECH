@@ -19,6 +19,7 @@ type Listing = {
   title: string;
   description: string;
   photos: string[];
+  viewCount: number;
   price: number | null;
   isPromoted: boolean;
   createdAt: string;

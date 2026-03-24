@@ -226,6 +226,7 @@ model Listing {
   photos      Json          @default("[]")
   price       Decimal?      @db.Decimal(12, 2)
   isPromoted  Boolean       @default(false) @map("is_promoted")
+  viewCount   Int           @default(0) @map("view_count")
   status      ListingStatus @default(active)
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")

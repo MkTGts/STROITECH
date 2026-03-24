@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MessageCircle, Star } from "lucide-react";
+import { Eye, MessageCircle, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ type ListingCardProps = {
     description: string;
     region?: string | null;
     photos: string[];
+    viewCount: number;
     price: number | null;
     isPromoted: boolean;
     createdAt: string;
@@ -89,6 +90,10 @@ export function ListingCard({ listing }: ListingCardProps) {
             hour: "2-digit",
             minute: "2-digit",
           })}
+        </p>
+        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+          <Eye className="h-3.5 w-3.5" />
+          Просмотров: {listing.viewCount ?? 0}
         </p>
 
         {listing.user && (

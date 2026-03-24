@@ -1,0 +1,4 @@
+-- Add listing page view counter
+ALTER TABLE "listings"
+ADD COLUMN IF NOT EXISTS "view_count" INTEGER NOT NULL DEFAULT 0;
+

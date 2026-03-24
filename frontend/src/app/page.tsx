@@ -191,7 +191,6 @@ export default function HomePage() {
               <h2 className="text-2xl font-bold md:text-3xl">Готовы начать строительство?</h2>
               <p className="mt-3 text-blue-100">
                 Зарегистрируйтесь и получите доступ к тысячам строителей, поставщиков и объявлений.
-                Первое объявление — бесплатно!
               </p>
               <Link href="/auth/register">
                 <Button size="lg" variant="secondary" className="mt-6 gap-2 text-base">
