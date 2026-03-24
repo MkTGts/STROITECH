@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Search, MessageCircle } from "lucide-react";
+import { Search, MessageCircle, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ const TABS = [
 ];
 
 export default function ProfilesPage() {
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -43,7 +43,7 @@ export default function ProfilesPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = { page, limit: 12 };
+      const params: Record<string, string | number> = { page, limit: 9 };
       if (activeTab !== "all") params.role = activeTab;
       if (debouncedSearch) params.search = debouncedSearch;
       if (region !== "all") params.region = region;
@@ -61,11 +61,6 @@ export default function ProfilesPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  const isModerator = user?.role === "moderator";
-  const visibleUsers = isModerator
-    ? users
-    : users.filter((u) => u.role !== "moderator" && u.role !== "client");
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -142,14 +137,14 @@ export default function ProfilesPage() {
             <div key={i} className="h-44 animate-pulse rounded-xl bg-muted" />
           ))}
         </div>
-      ) : visibleUsers.length === 0 ? (
+      ) : users.length === 0 ? (
         <div className="rounded-xl border bg-card p-16 text-center text-muted-foreground">
           Участники не найдены
         </div>
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleUsers.map((user) => (
+            {users.map((user) => (
               <Card key={user.id} className="flex h-full flex-col transition-shadow hover:shadow-lg">
                 <CardContent className="flex flex-1 flex-col p-5">
                   <div className="flex items-start gap-4">
@@ -172,6 +167,22 @@ export default function ProfilesPage() {
                         <p className="mt-1 text-xs text-muted-foreground">
                           Регион: {user.region}
                         </p>
+                      )}
+                      {isAuthenticated && (user.phone || user.email) && (
+                        <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          {user.phone && (
+                            <p className="flex items-center gap-1">
+                              <Phone className="h-3.5 w-3.5" />
+                              {user.phone}
+                            </p>
+                          )}
+                          {user.email && (
+                            <p className="flex items-center gap-1">
+                              <Mail className="h-3.5 w-3.5" />
+                              {user.email}
+                            </p>
+                          )}
+                        </div>
                       )}
                       {user.description && (
                         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">

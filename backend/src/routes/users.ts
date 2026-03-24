@@ -22,12 +22,23 @@ const managerSchema = z.object({
  * User and profile management routes.
  */
 export async function userRoutes(app: FastifyInstance): Promise<void> {
-  app.get("/", async (request: FastifyRequest) => {
+  app.get("/", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest) => {
     const { role, search, region, page = "1", limit = "20" } = request.query as Record<string, string>;
     const skip = (Number(page) - 1) * Number(limit);
     const where: any = {};
+    const isAuthenticated = Boolean(request.user);
+    const requesterRole = (request.user as { role?: string } | undefined)?.role;
+    const isModerator = requesterRole === "moderator";
 
-    if (role) where.role = role;
+    if (role) {
+      if (!isModerator && (role === "moderator" || role === "client")) {
+        where.role = { in: ["supplier", "builder", "equipment"] };
+      } else {
+        where.role = role;
+      }
+    } else if (!isModerator) {
+      where.role = { in: ["supplier", "builder", "equipment"] };
+    }
     if (region) where.region = region;
     if (search) {
       where.OR = [
@@ -43,6 +54,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         select: {
           id: true, name: true, companyName: true, role: true,
           region: true,
+          email: true,
+          phone: true,
           description: true, avatarUrl: true, isVerified: true, createdAt: true,
         },
         skip,
@@ -55,7 +68,9 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     return {
       success: true,
       data: {
-        items,
+        items: isAuthenticated
+          ? items
+          : items.map(({ email: _email, phone: _phone, ...safe }) => safe),
         total,
         page: Number(page),
         limit: Number(limit),
