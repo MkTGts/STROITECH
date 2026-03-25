@@ -60,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     set({ user: null, isAuthenticated: false });
+    useNotificationStore.setState({ unreadCount: 0 });
   },
 
   fetchUser: async () => {

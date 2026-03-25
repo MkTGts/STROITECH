@@ -21,7 +21,6 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuthStore();
   const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
-  const adjustUnread = useNotificationStore((s) => s.adjustUnread);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +42,6 @@ export default function NotificationsPage() {
   // realtime: добавление новых уведомлений по WebSocket
   useWsEvent("notification", (payload) => {
     setNotifications((prev) => [payload, ...prev]);
-    if (!payload.isRead) {
-      adjustUnread(1);
-    }
   });
 
   async function handleMarkAllRead() {
@@ -67,7 +63,8 @@ export default function NotificationsPage() {
       }),
     );
     if (marked) {
-      adjustUnread(-1);
+      // глобальный счётчик уменьшаем сразу, чтобы бейдж в шапке тоже обновился
+      useNotificationStore.getState().adjustUnread(-1);
     }
   }
 

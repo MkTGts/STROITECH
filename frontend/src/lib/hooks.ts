@@ -10,6 +10,8 @@ import { api } from "./api";
  */
 export function useWebSocket(): void {
   const isAuthenticated = useAuthStore((s: any) => s.isAuthenticated);
+  const setUnreadCount = useNotificationStore((s) => s.setUnreadCount);
+  const adjustUnread = useNotificationStore((s) => s.adjustUnread);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -18,12 +20,35 @@ export function useWebSocket(): void {
     return () => disconnectWs();
   }, [isAuthenticated]);
 
-  // Глобальное обновление бейджа уведомлений по событиям чата
+  // Глобальное обновление счётчика уведомлений по WebSocket
   useEffect(() => {
     if (!isAuthenticated) return;
-    // здесь больше не управляем счётчиком — он используется для центра уведомлений
-    // и обновляется через страницу уведомлений и события WebSocket "notification"
-  }, [isAuthenticated]);
+    let cancelled = false;
+
+    // Инициализируем счётчик (чтобы после перезагрузки страницы бейдж был корректный)
+    api<any>("/notifications", { params: { limit: 1 } })
+      .then((res) => {
+        if (!cancelled) setUnreadCount(res.data.unreadCount ?? 0);
+      })
+      .catch(() => {
+        // ignore
+      });
+
+    // realtime: увеличиваем счётчик при новых уведомлениях
+    const unsubscribe = onWsMessage((msg) => {
+      if (msg.type === "notification") {
+        const payload = msg.payload;
+        if (payload && payload.isRead === false) {
+          adjustUnread(1);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [adjustUnread, isAuthenticated, setUnreadCount]);
 }
 
 /**
