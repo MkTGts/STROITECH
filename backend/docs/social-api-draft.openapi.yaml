@@ -1,0 +1,308 @@
+# Черновик контракта API для социальных фич (SOCIAL.md, этапы B–E и далее).
+# Не подключён к рантайму: в приложении пока нет @fastify/swagger; сверка вручную / будущая генерация клиента.
+openapi: 3.0.3
+info:
+  title: STROITECH Social API (draft)
+  version: "0.1.0"
+  description: >
+    Планируемые маршруты. Префикс API в проде обычно /api (как у текущих /api/users, /api/feed).
+servers:
+  - url: /api
+
+tags:
+  - name: follow
+    description: Подписка на профиль (не путать с GET /subscriptions — тариф)
+  - name: feed
+    description: Лента и посты
+  - name: albums
+    description: Фотоальбомы профиля
+
+paths:
+  /users/{id}/follow:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [follow]
+      summary: Подписаться (идемпотентно; повтор → 200, created=false)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: Новая подписка
+        "200":
+          description: Уже подписаны
+    delete:
+      tags: [follow]
+      summary: Отписаться (идемпотентно)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+
+  /users/{id}/followers:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [follow]
+      summary: Список подписчиков (пагинация page/limit)
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: OK
+
+  /users/{id}/following:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [follow]
+      summary: Список аккаунтов, на которых подписан пользователь id
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: OK
+
+  /users/{id}/follow-status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [follow]
+      summary: Текущий пользователь подписан на id?
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      following: { type: boolean }
+
+  /feed/home:
+    get:
+      tags: [feed]
+      summary: Персональная лента (посты от подписок)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 50 }
+        - name: tag
+          in: query
+          description: Фильтр по slug хэштега (нормализованный, без #)
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /feed/recommended:
+    get:
+      tags: [feed]
+      summary: Рекомендуемые посты (эвристика v1, опционально)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/limit"
+        - name: tag
+          in: query
+          description: Фильтр по slug хэштега
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /users/{id}/albums:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [albums]
+      summary: Список альбомов пользователя
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: OK
+
+  /albums:
+    post:
+      tags: [albums]
+      summary: Создать альбом (владелец = JWT)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: OK
+
+  /albums/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [albums]
+      summary: Альбом с фотографиями
+      responses:
+        "200":
+          description: OK
+    put:
+      tags: [albums]
+      summary: Обновить альбом (только владелец)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+    delete:
+      tags: [albums]
+      summary: Удалить альбом (только владелец)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+
+  /albums/{id}/photos:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [albums]
+      summary: Добавить фото (URL после POST /upload/album)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201":
+          description: OK
+
+  /albums/{id}/photos/{photoId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: photoId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [albums]
+      summary: Удалить фото из альбома
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+
+  /albums/{id}/photos/reorder:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [albums]
+      summary: Установить порядок фото (массив id)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+
+  /upload/album:
+    post:
+      tags: [albums]
+      summary: Загрузка изображения в префикс albums/{userId}/
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+
+  /feed/tags/popular:
+    get:
+      tags: [feed]
+      summary: Популярные хэштеги (до 30, по числу привязанных постов)
+      responses:
+        "200":
+          description: OK
+
+  /feed/posts:
+    get:
+      tags: [feed]
+      summary: Список постов (пагинация; kind; authorId; tag — slug без #)
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+        - name: kind
+          in: query
+          schema: { type: string, enum: [article, wall, share] }
+        - name: authorId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: tag
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+    post:
+      tags: [feed]
+      summary: Создать пост (статья, стена или репост)
+      security: [{ bearerAuth: [] }]
+      description: >
+        Репост на стену kind=share, поле share { targetType: feed_post | listing | construction_object, targetId },
+        опционально body — комментарий (до 2000 символов). Список постов kind=wall включает wall и share.
+        Текст может содержать хэштеги (#слово) и токены упоминаний [[mention:uuid]] — после сохранения в ответах
+        приходят tags, mentions и mentionUsers.
+      responses:
+        "201":
+          description: Создано
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }

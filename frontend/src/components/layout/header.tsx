@@ -12,6 +12,7 @@ import {
   Users,
   HardHat,
   Newspaper,
+  Sparkles,
 } from "lucide-react";
 import { SiteLogo } from "@/components/branding/site-logo";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,25 @@ const NAV_ITEMS = [
   { href: "/chat", label: "Чат", icon: MessageCircle },
 ];
 
+const MY_FEED_ITEM = { href: "/lenta/dlia-menya", label: "Моя лента", icon: Sparkles };
+
+function navItemActive(pathname: string, href: string): boolean {
+  if (href === "/lenta/dlia-menya") return pathname === "/lenta/dlia-menya";
+  if (href === "/lenta") {
+    return pathname === "/lenta" || (pathname.startsWith("/lenta/") && pathname !== "/lenta/dlia-menya");
+  }
+  return pathname === href;
+}
+
+function buildNavItems(isAuthenticated: boolean) {
+  return NAV_ITEMS.flatMap((item) => {
+    if (item.href === "/lenta" && isAuthenticated) {
+      return [item, MY_FEED_ITEM];
+    }
+    return [item];
+  });
+}
+
 export function Header() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -46,12 +66,9 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map((item) => {
+          {buildNavItems(isAuthenticated).map((item) => {
             const href = item.href === "/chat" && !isAuthenticated ? "/auth/login" : item.href;
-            const isActive =
-              item.href === "/lenta"
-                ? pathname === "/lenta" || pathname.startsWith("/lenta/")
-                : pathname === item.href;
+            const isActive = navItemActive(pathname, item.href);
             return (
               <Link key={item.href} href={href}>
                 <Button
@@ -120,12 +137,9 @@ export function Header() {
           </SheetTrigger>
           <SheetContent side="right" className="w-72">
             <nav className="mt-8 flex flex-col gap-2">
-              {NAV_ITEMS.map((item) => {
+              {buildNavItems(isAuthenticated).map((item) => {
                 const href = item.href === "/chat" && !isAuthenticated ? "/auth/login" : item.href;
-                const mobileActive =
-                  item.href === "/lenta"
-                    ? pathname === "/lenta" || pathname.startsWith("/lenta/")
-                    : pathname === item.href;
+                const mobileActive = navItemActive(pathname, item.href);
                 return (
                   <Link
                     key={item.href}

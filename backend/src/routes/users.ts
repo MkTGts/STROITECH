@@ -2,6 +2,22 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId, getUserRole } from "../lib/auth";
+import { sendToUser } from "../ws/handler";
+
+const followListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const followUserCardSelect = {
+  id: true,
+  name: true,
+  companyName: true,
+  role: true,
+  region: true,
+  avatarUrl: true,
+  isVerified: true,
+} as const;
 
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
@@ -88,6 +104,211 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
+  app.get(
+    "/:id/follow-status",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id: targetId } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(targetId).success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const me = getUserId(request);
+      if (me === targetId) {
+        return { success: true, data: { following: false, isSelf: true } };
+      }
+      const row = await prisma.userFollow.findUnique({
+        where: { followerId_followingId: { followerId: me, followingId: targetId } },
+      });
+      return { success: true, data: { following: Boolean(row), isSelf: false } };
+    },
+  );
+
+  app.get("/:id/followers", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id: targetId } = request.params as { id: string };
+    if (!z.string().uuid().safeParse(targetId).success) {
+      return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+    }
+    const userExists = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!userExists) {
+      return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+    }
+    const q = followListQuerySchema.parse(request.query);
+    const skip = (q.page - 1) * q.limit;
+    const [rows, total] = await Promise.all([
+      prisma.userFollow.findMany({
+        where: { followingId: targetId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: q.limit,
+        include: { follower: { select: followUserCardSelect } },
+      }),
+      prisma.userFollow.count({ where: { followingId: targetId } }),
+    ]);
+    return {
+      success: true,
+      data: {
+        items: rows.map((r) => r.follower),
+        total,
+        page: q.page,
+        limit: q.limit,
+        totalPages: Math.ceil(total / q.limit),
+      },
+    };
+  });
+
+  app.get("/:id/following", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id: targetId } = request.params as { id: string };
+    if (!z.string().uuid().safeParse(targetId).success) {
+      return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+    }
+    const userExists = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!userExists) {
+      return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+    }
+    const q = followListQuerySchema.parse(request.query);
+    const skip = (q.page - 1) * q.limit;
+    const [rows, total] = await Promise.all([
+      prisma.userFollow.findMany({
+        where: { followerId: targetId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: q.limit,
+        include: { following: { select: followUserCardSelect } },
+      }),
+      prisma.userFollow.count({ where: { followerId: targetId } }),
+    ]);
+    return {
+      success: true,
+      data: {
+        items: rows.map((r) => r.following),
+        total,
+        page: q.page,
+        limit: q.limit,
+        totalPages: Math.ceil(total / q.limit),
+      },
+    };
+  });
+
+  app.post(
+    "/:id/follow",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id: targetId } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(targetId).success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const me = getUserId(request);
+      if (me === targetId) {
+        return reply.status(400).send({ success: false, message: "Нельзя подписаться на самого себя" });
+      }
+      const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+      if (!target) {
+        return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+      }
+
+      const existing = await prisma.userFollow.findUnique({
+        where: { followerId_followingId: { followerId: me, followingId: targetId } },
+      });
+      if (existing) {
+        return { success: true, data: { following: true, created: false } };
+      }
+
+      await prisma.userFollow.create({
+        data: { followerId: me, followingId: targetId },
+      });
+
+      const follower = await prisma.user.findUnique({
+        where: { id: me },
+        select: { name: true },
+      });
+      const name = follower?.name?.trim() || "Участник";
+
+      const notification = await prisma.notification.create({
+        data: {
+          userId: targetId,
+          type: "new_follower",
+          content: `${name} подписался на ваш профиль`,
+          metadata: { followerId: me },
+        },
+      });
+      sendToUser(targetId, { type: "notification", payload: notification });
+
+      return reply.status(201).send({
+        success: true,
+        data: { following: true, created: true },
+      });
+    },
+  );
+
+  app.delete(
+    "/:id/follow",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id: targetId } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(targetId).success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const me = getUserId(request);
+      await prisma.userFollow.deleteMany({
+        where: { followerId: me, followingId: targetId },
+      });
+      return { success: true, data: { following: false } };
+    },
+  );
+
+  app.get("/:id/albums", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id: targetId } = request.params as { id: string };
+    if (!z.string().uuid().safeParse(targetId).success) {
+      return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+    }
+    const userExists = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!userExists) {
+      return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+    }
+    const q = followListQuerySchema.parse(request.query);
+    const skip = (q.page - 1) * q.limit;
+    const [rows, total] = await Promise.all([
+      prisma.photoAlbum.findMany({
+        where: { ownerId: targetId },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: q.limit,
+        select: {
+          id: true,
+          ownerId: true,
+          title: true,
+          description: true,
+          coverUrl: true,
+          objectId: true,
+          createdAt: true,
+          _count: { select: { photos: true } },
+          object: { select: { id: true, title: true } },
+        },
+      }),
+      prisma.photoAlbum.count({ where: { ownerId: targetId } }),
+    ]);
+    return {
+      success: true,
+      data: {
+        items: rows.map((r) => ({
+          id: r.id,
+          ownerId: r.ownerId,
+          title: r.title,
+          description: r.description,
+          coverUrl: r.coverUrl,
+          objectId: r.objectId,
+          photoCount: r._count.photos,
+          createdAt: r.createdAt.toISOString(),
+          object: r.object,
+        })),
+        total,
+        page: q.page,
+        limit: q.limit,
+        totalPages: Math.ceil(total / q.limit),
+      },
+    };
+  });
+
   app.get("/:id", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
@@ -96,7 +317,13 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       include: {
         managers: true,
         listings: { where: { status: "active" }, take: 10, orderBy: { createdAt: "desc" } },
-        _count: { select: { listings: true } },
+        _count: {
+          select: {
+            listings: true,
+            incomingFollows: true,
+            outgoingFollows: true,
+          },
+        },
       },
     });
 
@@ -105,12 +332,17 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const isAuthenticated = Boolean(request.user);
-    const { passwordHash, ...safe } = user;
+    const { passwordHash, _count, ...safe } = user;
+    const counts = {
+      listingsCount: _count.listings,
+      followerCount: _count.incomingFollows,
+      followingCount: _count.outgoingFollows,
+    };
     if (!isAuthenticated) {
       const { email: _email, phone: _phone, ...publicSafe } = safe;
-      return { success: true, data: publicSafe };
+      return { success: true, data: { ...publicSafe, ...counts } };
     }
-    return { success: true, data: safe };
+    return { success: true, data: { ...safe, ...counts } };
   });
 
   app.put(

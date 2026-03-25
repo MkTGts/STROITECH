@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/store";
+import { FollowButton } from "@/components/features/follow-button";
 import { useDebounce } from "@/lib/hooks";
 import { api } from "@/lib/api";
 import { RUSSIAN_REGIONS } from "@/constants/regions";
@@ -30,7 +31,7 @@ const TABS = [
 ];
 
 export default function ProfilesPage() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user: currentUser } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -191,10 +192,13 @@ export default function ProfilesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="mt-4 mt-auto flex gap-2">
-                    <Link href={`/profiles/${user.id}`} className="flex-1">
+                  <div className="mt-4 mt-auto flex flex-wrap gap-2">
+                    <Link href={`/profiles/${user.id}`} className="min-w-0 flex-1">
                       <Button variant="outline" size="sm" className="w-full">Профиль</Button>
                     </Link>
+                    {isAuthenticated && currentUser?.id !== user.id && (
+                      <FollowButton targetUserId={user.id} size="sm" />
+                    )}
                     {isAuthenticated && (
                       <Link href={`/chat?to=${user.id}&context=profile`}>
                         <Button size="sm" variant="ghost" className="gap-1">

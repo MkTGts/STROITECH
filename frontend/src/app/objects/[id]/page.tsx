@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
+import { ShareToWallButton } from "@/components/features/share-to-wall-button";
 
 const STAGE_LABELS: Record<string, string> = {
   foundation: "Фундамент",
@@ -257,7 +258,15 @@ export default function ObjectDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <h1 className="text-2xl font-bold">{object.title}</h1>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h1 className="text-2xl font-bold">{object.title}</h1>
+            {isAuthenticated &&
+              typeof id === "string" &&
+              object.status !== "draft" &&
+              object.status !== "archived" && (
+                <ShareToWallButton targetType="construction_object" targetId={id} />
+              )}
+          </div>
           {(() => {
             const status = STATUS_CONFIG[object.status] || STATUS_CONFIG.active;
             return <Badge className={`mt-2 ${status.color}`}>{status.label}</Badge>;

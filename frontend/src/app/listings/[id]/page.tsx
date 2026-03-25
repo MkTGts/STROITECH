@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
+import { ShareToWallButton } from "@/components/features/share-to-wall-button";
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",
@@ -222,7 +223,12 @@ export default function ListingDetailPage() {
                 </Badge>
               )}
             </div>
-            <h1 className="mt-3 text-2xl font-bold">{listing.title}</h1>
+            <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+              <h1 className="text-2xl font-bold">{listing.title}</h1>
+              {isAuthenticated && typeof id === "string" && listing.status === "active" && (
+                <ShareToWallButton targetType="listing" targetId={id} />
+              )}
+            </div>
             {listing.region && (
               <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                 <MapPin className="h-4 w-4" /> Регион: {listing.region}

@@ -25,12 +25,33 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { MarkdownBody } from "@/components/features/markdown-body";
+import {
+  articleMarkdownWithMentions,
+  FeedPlainSocialText,
+  FeedTagChips,
+} from "@/components/features/feed-social-body";
 import { FeedLikeButton } from "@/components/features/feed-like-button";
+import { FeedShareCard } from "@/components/features/feed-share-card";
+import { ShareToWallButton } from "@/components/features/share-to-wall-button";
 import { FeedCommentLikeButton } from "@/components/features/feed-comment-like-button";
 import type { FeedComment, FeedPostDetail } from "shared";
 import { canManageFeedPost } from "../lenta-client";
 
 const COMMENTS_LIMIT = 50;
+
+function normalizeFeedPostDetail(d: FeedPostDetail): FeedPostDetail {
+  return {
+    ...d,
+    kind: d.kind ?? "article",
+    attachments: d.attachments ?? [],
+    sharePreview: d.sharePreview,
+    shareTarget: d.shareTarget,
+    shareTargetId: d.shareTargetId,
+    tags: d.tags ?? [],
+    mentions: d.mentions ?? [],
+    mentionUsers: d.mentionUsers ?? [],
+  };
+}
 
 function formatFeedDate(iso: string) {
   try {
@@ -95,7 +116,7 @@ function LentaPostInner({ id }: { id: string }) {
       const res = await api<{ success: boolean; data: FeedPostDetail }>(`/feed/posts/${id}`, {
         params: { commentsPage: page, commentsLimit: COMMENTS_LIMIT },
       });
-      return res.data;
+      return normalizeFeedPostDetail(res.data);
     },
     [id],
   );
@@ -261,9 +282,9 @@ function LentaPostInner({ id }: { id: string }) {
     setDeletingPost(true);
     try {
       await api(`/feed/posts/${post.id}`, { method: "DELETE" });
-      toast.success("Статья удалена");
+      toast.success(post.kind === "wall" || post.kind === "share" ? "Запись удалена" : "Статья удалена");
       setDeletePostOpen(false);
-      router.push("/lenta");
+      router.push(post.kind === "wall" || post.kind === "share" ? `/profiles/${post.author.id}` : "/lenta");
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Не удалось удалить статью";
       toast.error(message);
@@ -426,9 +447,9 @@ function LentaPostInner({ id }: { id: string }) {
   return (
     <article className="mx-auto max-w-3xl px-4 py-8">
       <Button variant="ghost" size="sm" className="mb-6 gap-2" asChild>
-        <Link href="/lenta">
+        <Link href={post.kind === "wall" || post.kind === "share" ? `/profiles/${post.author.id}` : "/lenta"}>
           <ArrowLeft className="h-4 w-4" />
-          К ленте
+          {post.kind === "wall" || post.kind === "share" ? "К профилю" : "К ленте"}
         </Link>
       </Button>
 
@@ -442,20 +463,29 @@ function LentaPostInner({ id }: { id: string }) {
           </Button>
           <Button type="button" variant="destructive" size="sm" className="gap-1" onClick={() => setDeletePostOpen(true)}>
             <Trash2 className="h-3.5 w-3.5" />
-            Удалить статью
+            {post.kind === "wall" || post.kind === "share" ? "Удалить запись" : "Удалить статью"}
           </Button>
         </div>
       )}
 
-      {post.coverImageUrl && (
+      {post.kind !== "wall" && post.kind !== "share" && post.coverImageUrl && (
         <div className="mb-8 overflow-hidden rounded-xl border bg-muted">
           <img src={post.coverImageUrl} alt="" className="aspect-video w-full object-cover" />
         </div>
       )}
 
       <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{post.title}</h1>
-        {post.excerpt && <p className="mt-3 text-lg text-muted-foreground">{post.excerpt}</p>}
+        {post.kind === "wall" && (
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Запись на стене</p>
+        )}
+        {post.kind === "share" && (
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Репост</p>
+        )}
+        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{post.title.trim() || "Запись"}</h1>
+        {post.kind !== "wall" && post.kind !== "share" && post.excerpt && (
+          <p className="mt-3 text-lg text-muted-foreground">{post.excerpt}</p>
+        )}
+        <FeedTagChips tags={post.tags ?? []} className="mt-3" />
 
         <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <Link
@@ -486,10 +516,43 @@ function LentaPostInner({ id }: { id: string }) {
             <Eye className="h-4 w-4" />
             {post.uniqueViewCount}
           </span>
+          {isAuthenticated && (post.kind === "article" || post.kind === "wall") && (
+            <ShareToWallButton targetType="feed_post" targetId={post.id} variant="outline" size="sm" />
+          )}
         </div>
       </header>
 
-      <MarkdownBody markdown={post.body} />
+      {post.kind === "share" && post.sharePreview ? (
+        <div className="space-y-6">
+          {(post.body ?? "").trim() ? (
+            <FeedPlainSocialText
+              text={post.body ?? ""}
+              mentionUsers={post.mentionUsers ?? []}
+              className="whitespace-pre-wrap text-base leading-relaxed text-foreground"
+            />
+          ) : null}
+          <FeedShareCard preview={post.sharePreview} className="max-w-xl" />
+        </div>
+      ) : post.kind === "wall" ? (
+        <div className="space-y-6">
+          <FeedPlainSocialText
+            text={post.body}
+            mentionUsers={post.mentionUsers ?? []}
+            className="whitespace-pre-wrap text-base leading-relaxed text-foreground"
+          />
+          {(post.attachments?.length ?? 0) > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {post.attachments!.map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border">
+                  <img src={url} alt="" className="aspect-video w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <MarkdownBody markdown={articleMarkdownWithMentions(post.body, post.mentionUsers ?? [])} />
+      )}
 
       <section className="mt-12 border-t pt-8">
         <div className="mb-8 flex flex-col gap-4 border-b pb-8 sm:flex-row sm:flex-wrap sm:items-center sm:gap-8">
@@ -625,9 +688,13 @@ function LentaPostInner({ id }: { id: string }) {
       <Dialog open={deletePostOpen} onOpenChange={(open) => !open && !deletingPost && setDeletePostOpen(false)}>
         <DialogContent showCloseButton={true}>
           <DialogHeader>
-            <DialogTitle>Удалить статью?</DialogTitle>
+            <DialogTitle>
+              {post.kind === "wall" || post.kind === "share" ? "Удалить запись?" : "Удалить статью?"}
+            </DialogTitle>
             <DialogDescription>
-              Статья «{post.title}» будет удалена вместе с комментариями и лайками. Это действие нельзя отменить.
+              {post.kind === "wall" || post.kind === "share"
+                ? "Запись будет удалена вместе с комментариями и лайками. Это действие нельзя отменить."
+                : `Статья «${post.title}» будет удалена вместе с комментариями и лайками. Это действие нельзя отменить.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton={false}>

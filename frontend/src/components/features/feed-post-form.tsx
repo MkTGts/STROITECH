@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { api, ApiError, uploadFile } from "@/lib/api";
+import { FeedMentionPicker } from "@/components/features/feed-mention-picker";
 
 export type FeedPostFormInitial = {
   title: string;
@@ -134,14 +135,17 @@ export function FeedPostForm({ mode, postId, initial }: FeedPostFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="feed-excerpt">Краткое описание (необязательно)</Label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label htmlFor="feed-excerpt">Краткое описание (необязательно)</Label>
+          <FeedMentionPicker onInsert={(snippet) => setExcerpt((b) => b + snippet)} />
+        </div>
         <Textarea
           id="feed-excerpt"
           value={excerpt}
           onChange={(e) => setExcerpt(e.target.value)}
           maxLength={500}
           rows={3}
-          placeholder="Появится в списке статей"
+          placeholder="Появится в списке статей; #теги здесь тоже попадут в разметку поста"
           disabled={saving}
           className="min-h-[72px] resize-y"
         />
@@ -149,17 +153,22 @@ export function FeedPostForm({ mode, postId, initial }: FeedPostFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="feed-body">Текст (Markdown)</Label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label htmlFor="feed-body">Текст (Markdown)</Label>
+          <FeedMentionPicker onInsert={(snippet) => setBody((b) => b + snippet)} />
+        </div>
         <Textarea
           id="feed-body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={16}
-          placeholder="Текст в формате Markdown"
+          placeholder="Текст в формате Markdown. Хэштеги и упоминания учитываются и в кратком описании выше."
           disabled={saving}
           className="min-h-[320px] resize-y font-mono text-sm"
         />
-        <p className="text-xs text-muted-foreground">{body.length.toLocaleString("ru-RU")} символов</p>
+        <p className="text-xs text-muted-foreground">
+          {body.length.toLocaleString("ru-RU")} символов · Хэштег #слово · Упоминание — кнопка «Упомянуть»
+        </p>
       </div>
 
       <div className="space-y-2">

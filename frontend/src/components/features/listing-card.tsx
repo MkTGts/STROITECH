@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/lib/store";
+import { ShareToWallButton } from "@/components/features/share-to-wall-button";
 
 type ListingCardProps = {
   listing: {
@@ -113,11 +114,14 @@ export function ListingCard({ listing }: ListingCardProps) {
               </div>
             </Link>
             {isAuthenticated && (
-              <Link href={`/chat?to=${listing.user.id}&context=listing&contextId=${listing.id}`}>
-                <Button size="icon" variant="ghost" className="h-8 w-8">
-                  <MessageCircle className="h-4 w-4" />
-                </Button>
-              </Link>
+              <div className="flex items-center gap-1">
+                <ShareToWallButton targetType="listing" targetId={listing.id} size="sm" variant="ghost" label="" className="h-8 w-8 px-0" />
+                <Link href={`/chat?to=${listing.user.id}&context=listing&contextId=${listing.id}`}>
+                  <Button size="icon" variant="ghost" className="h-8 w-8">
+                    <MessageCircle className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
         )}

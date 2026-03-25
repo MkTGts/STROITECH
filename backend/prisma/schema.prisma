@@ -66,10 +66,23 @@ enum NotificationType {
   message
   tender
   system
+  new_follower
 }
 
 enum FeedPostStatus {
   published
+}
+
+enum FeedPostKind {
+  article
+  wall
+  share
+}
+
+enum ShareTargetType {
+  feed_post
+  listing
+  construction_object
 }
 
 model User {
@@ -100,31 +113,80 @@ model User {
   feedComments          FeedComment[]
   feedCommentLikes      FeedCommentLike[]
   feedPostViews         FeedPostView[]
+  outgoingFollows       UserFollow[]         @relation("OutgoingFollows")
+  incomingFollows       UserFollow[]         @relation("IncomingFollows")
+  photoAlbums           PhotoAlbum[]
 
   @@map("users")
 }
 
+model FeedTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  postTags FeedPostTag[]
+
+  @@map("feed_tags")
+}
+
+model FeedPostTag {
+  postId String @map("post_id") @db.Uuid
+  tagId  String @map("tag_id") @db.Uuid
+
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  FeedTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("feed_post_tags")
+}
+
+model UserFollow {
+  id          String   @id @default(uuid()) @db.Uuid
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("OutgoingFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("IncomingFollows", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("user_follows")
+}
+
 model FeedPost {
-  id             String          @id @default(uuid()) @db.Uuid
-  authorId       String          @map("author_id") @db.Uuid
-  title          String          @db.VarChar(200)
-  slug           String?         @unique @db.VarChar(220)
-  excerpt        String?         @db.VarChar(500)
-  body           String          @db.Text
-  coverImageUrl  String?         @map("cover_image_url")
-  status         FeedPostStatus  @default(published)
-  publishedAt    DateTime        @default(now()) @map("published_at")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  id             String              @id @default(uuid()) @db.Uuid
+  authorId       String              @map("author_id") @db.Uuid
+  kind           FeedPostKind        @default(article)
+  title          String              @db.VarChar(200)
+  slug           String?             @unique @db.VarChar(220)
+  excerpt        String?             @db.VarChar(500)
+  body           String              @db.Text
+  coverImageUrl  String?             @map("cover_image_url")
+  attachments    Json                @default("[]")
+  /** Для kind=share: тип и id оригинала (пост / объявление / объект). */
+  shareTarget    ShareTargetType?    @map("share_target")
+  shareTargetId  String?             @map("share_target_id") @db.Uuid
+  /** UUID пользователей из токенов [[mention:uuid]] в тексте. */
+  mentions       Json                @default("[]")
+  status         FeedPostStatus      @default(published)
+  publishedAt    DateTime            @default(now()) @map("published_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
 
   author   User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   likes    FeedPostLike[]
   comments FeedComment[]
   views    FeedPostView[]
+  postTags FeedPostTag[]
 
   @@index([authorId])
   @@index([publishedAt(sort: Desc)])
   @@index([status, publishedAt(sort: Desc)])
+  @@index([status, kind, publishedAt(sort: Desc)])
   @@map("feed_posts")
 }
 
@@ -255,10 +317,44 @@ model ConstructionObject {
 
   user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   stages ObjectStage[]
+  photoAlbums PhotoAlbum[]
 
   @@index([userId])
   @@index([status])
   @@map("construction_objects")
+}
+
+model PhotoAlbum {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerId     String   @map("owner_id") @db.Uuid
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  coverUrl    String?  @map("cover_url")
+  objectId    String?  @map("object_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner  User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  object ConstructionObject? @relation(fields: [objectId], references: [id], onDelete: SetNull)
+  photos AlbumPhoto[]
+
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([objectId])
+  @@map("photo_albums")
+}
+
+model AlbumPhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  albumId   String   @map("album_id") @db.Uuid
+  url       String
+  caption   String?  @db.VarChar(500)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  album PhotoAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([albumId, sortOrder])
+  @@map("album_photos")
 }
 
 model ObjectStage {

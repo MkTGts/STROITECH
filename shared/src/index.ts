@@ -7,3 +7,4 @@ export * from "./types/notification";
 export * from "./types/category";
 export * from "./types/api";
 export * from "./types/feed";
+export * from "./types/album";

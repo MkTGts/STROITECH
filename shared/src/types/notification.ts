@@ -3,6 +3,7 @@ export enum NotificationType {
   MESSAGE = "message",
   TENDER = "tender",
   SYSTEM = "system",
+  NEW_FOLLOWER = "new_follower",
 }
 
 export type Notification = {

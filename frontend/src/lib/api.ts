@@ -54,6 +54,40 @@ export async function api<T>(endpoint: string, options: FetchOptions = {}): Prom
 /**
  * Upload a file to the backend.
  */
+/** Загрузка изображения для записи стены (S3: префикс wall/). */
+export async function uploadWallImage(file: File): Promise<{ url: string; filename: string }> {
+  const token = _getAccessToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/upload/wall`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error("Ошибка загрузки изображения");
+  const data = await response.json();
+  return data.data;
+}
+
+/** Загрузка изображения для фотоальбома (S3: префикс albums/). */
+export async function uploadAlbumImage(file: File): Promise<{ url: string; filename: string }> {
+  const token = _getAccessToken();
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_URL}/upload/album`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error("Ошибка загрузки изображения");
+  const data = await response.json();
+  return data.data;
+}
+
 export async function uploadFile(file: File): Promise<{ url: string; filename: string }> {
   const token = _getAccessToken();
   const formData = new FormData();

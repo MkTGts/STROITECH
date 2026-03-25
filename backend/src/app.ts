@@ -14,6 +14,7 @@ import { subscriptionRoutes } from "./routes/subscriptions";
 import { notificationRoutes } from "./routes/notifications";
 import { uploadRoutes } from "./routes/upload";
 import { feedRoutes } from "./routes/feed";
+import { albumRoutes } from "./routes/albums";
 import { wsHandler } from "./ws/handler";
 
 /**
@@ -68,6 +69,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(notificationRoutes, { prefix: "/api/notifications" });
   await app.register(uploadRoutes, { prefix: "/api/upload" });
   await app.register(feedRoutes, { prefix: "/api/feed" });
+  await app.register(albumRoutes, { prefix: "/api/albums" });
   await app.register(wsHandler, { prefix: "/ws" });
 
   app.get("/api/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
