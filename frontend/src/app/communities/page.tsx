@@ -15,6 +15,7 @@ import { toast } from "sonner";
 export default function CommunitiesListPage() {
   const { isAuthenticated } = useAuthStore();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [items, setItems] = useState<CommunityListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -70,10 +71,7 @@ export default function CommunitiesListPage() {
           className="pl-10"
           placeholder="Поиск по названию или описанию…"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
