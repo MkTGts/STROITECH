@@ -6,6 +6,7 @@ import { UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { FollowButton } from "@/components/features/follow-button";
+import { profileCardActionButtonClassName } from "@/constants/profile-card";
 import { VerifiedBadge } from "@/components/features/verified-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -101,9 +102,9 @@ export function ContactRecommendationsWidget({ limit = 8, className = "" }: Prop
               </Link>
               <FollowButton
                 targetUserId={u.id}
-                size="sm"
+                size="default"
                 variant="default"
-                className="w-full font-medium shadow-sm"
+                className={profileCardActionButtonClassName}
                 onFollowChange={() => void fetchRecs()}
               />
             </CardContent>

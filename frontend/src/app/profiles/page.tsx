@@ -16,6 +16,7 @@ import { VerifiedBadge } from "@/components/features/verified-badge";
 import { ContactRecommendationsWidget } from "@/components/features/contact-recommendations-widget";
 import { useDebounce } from "@/lib/hooks";
 import { api } from "@/lib/api";
+import { profileCardActionButtonClassName } from "@/constants/profile-card";
 import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -156,8 +157,6 @@ export default function ProfilesPage() {
             {users.map((user) => {
               const showFollow = Boolean(isAuthenticated && currentUser?.id !== user.id);
               const showChat = Boolean(isAuthenticated);
-              const footerCols =
-                1 + (showFollow ? 1 : 0) + (showChat ? 1 : 0);
 
               return (
               <Card key={user.id} className="flex h-full flex-col transition-shadow hover:shadow-lg">
@@ -209,32 +208,23 @@ export default function ProfilesPage() {
                       )}
                     </div>
                   </div>
-                  <div
-                    className={cn(
-                      "mt-auto grid gap-2 border-t border-border/70 pt-4",
-                      footerCols === 1 && "grid-cols-1",
-                      footerCols === 2 && "grid-cols-1 sm:grid-cols-2",
-                      footerCols >= 3 && "grid-cols-1 sm:grid-cols-3",
-                    )}
-                  >
-                    <Button variant="outline" size="sm" className="min-h-9 w-full font-medium shadow-sm" asChild>
+                  <div className="mt-auto flex flex-col gap-2.5 border-t border-border/70 pt-4">
+                    <Button variant="outline" size="default" className={profileCardActionButtonClassName} asChild>
                       <Link href={`/profiles/${user.id}`}>
                         <UserRound className="h-4 w-4 shrink-0" />
                         Профиль
                       </Link>
                     </Button>
                     {showFollow ? (
-                      <div className="min-w-0">
-                        <FollowButton
-                          targetUserId={user.id}
-                          size="sm"
-                          variant="default"
-                          className="min-h-9 w-full font-medium shadow-sm"
-                        />
-                      </div>
+                      <FollowButton
+                        targetUserId={user.id}
+                        size="default"
+                        variant="default"
+                        className={profileCardActionButtonClassName}
+                      />
                     ) : null}
                     {showChat ? (
-                      <Button variant="outline" size="sm" className="min-h-9 w-full font-medium shadow-sm" asChild>
+                      <Button variant="outline" size="default" className={profileCardActionButtonClassName} asChild>
                         <Link href={`/chat?to=${user.id}&context=profile`}>
                           <MessageCircle className="h-4 w-4 shrink-0" />
                           Написать

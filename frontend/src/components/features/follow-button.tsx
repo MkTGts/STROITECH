@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { UserPlus, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { api, ApiError } from "@/lib/api";
 import { toast } from "sonner";
@@ -88,7 +89,7 @@ export function FollowButton({
   if (!isAuthenticated || isSelf) return null;
   if (fetching || following === null) {
     return (
-      <Button type="button" variant={variant} size={size} className={className} disabled>
+      <Button type="button" variant={variant} size={size} className={cn("gap-2", className)} disabled>
         …
       </Button>
     );
@@ -99,7 +100,7 @@ export function FollowButton({
       type="button"
       variant={following ? "secondary" : variant}
       size={size}
-      className={`gap-2 ${className ?? ""}`}
+      className={cn("gap-2", className)}
       disabled={loading}
       onClick={() => void toggleFollow()}
     >
