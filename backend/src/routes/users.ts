@@ -615,7 +615,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         data,
       });
 
-      const { passwordHash, verificationNote, verifiedById, verifiedBy, ...rest } = user;
+      const { passwordHash, verificationNote, verifiedById, ...rest } = user;
       return {
         success: true,
         data: {

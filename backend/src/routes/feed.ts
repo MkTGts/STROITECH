@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import type { Prisma, ShareTargetType } from "@prisma/client";
+import { UserRole, type Prisma, type ShareTargetType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getOptionalUserId, getUserId, getUserRole } from "../lib/auth";
 import { canModerateCommunityContent } from "../lib/community-permissions";
@@ -664,7 +664,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     if (viewer?.region && String(viewer.region).trim().length > 0) {
       authorWhere.region = viewer.region;
     } else {
-      authorWhere.role = viewer?.role ?? "client";
+      authorWhere.role = viewer?.role ?? UserRole.client;
     }
 
     const tagSlug = parseTagFilter(q.tag);
