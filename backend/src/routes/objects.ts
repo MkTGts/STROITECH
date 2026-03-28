@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
+import { SubscriptionPlan, UserRole } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getUserId, getOptionalUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
@@ -454,7 +454,7 @@ async function _checkSubscription(userId: string): Promise<boolean> {
     where: {
       userId,
       status: "active",
-      plan: { in: ["basic", "premium"] },
+      plan: { in: [SubscriptionPlan.basic, SubscriptionPlan.premium] },
       expiresAt: { gt: new Date() },
     },
   });

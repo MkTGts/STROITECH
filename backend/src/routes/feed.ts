@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { UserRole, type Prisma, type ShareTargetType } from "@prisma/client";
+import { FeedPostKind, UserRole, type Prisma, type ShareTargetType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getOptionalUserId, getUserId, getUserRole } from "../lib/auth";
 import { canModerateCommunityContent } from "../lib/community-permissions";
@@ -739,10 +739,10 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
       status: "published",
       ...feedPostTagWhere(tagSlug),
       ...(q.kind === "wall"
-        ? { kind: { in: ["wall", "share"] } }
+        ? { kind: { in: [FeedPostKind.wall, FeedPostKind.share] } }
         : q.kind === "share"
-          ? { kind: "share" }
-          : { kind: q.kind ?? "article" }),
+          ? { kind: FeedPostKind.share }
+          : { kind: q.kind ?? FeedPostKind.article }),
     };
     if (q.authorId) where.authorId = q.authorId;
     if (q.communityId) where.communityId = q.communityId;
@@ -771,7 +771,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     const pageRows = rows as FeedListRow[];
     const shareMap = await buildSharePreviewsMap(pageRows);
     const items = await attachMentionUsersToFeedListItems(
-      mapRowsToFeedListItems(pageRows, optionalUserId, likedSet, shareMap),
+      mapRowsToFeedListItems(pageRows, optionalUserId ?? undefined, likedSet, shareMap),
     );
 
     return {
