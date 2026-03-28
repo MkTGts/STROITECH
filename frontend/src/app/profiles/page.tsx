@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Search, MessageCircle, Mail, Phone } from "lucide-react";
+import { Search, MessageCircle, Mail, Phone, UserRound } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -217,31 +217,29 @@ export default function ProfilesPage() {
                       footerCols >= 3 && "grid-cols-1 sm:grid-cols-3",
                     )}
                   >
-                    <Link href={`/profiles/${user.id}`} className="min-w-0">
-                      <Button variant="outline" size="sm" className="h-9 w-full whitespace-nowrap">
+                    <Button variant="outline" size="sm" className="min-h-9 w-full font-medium shadow-sm" asChild>
+                      <Link href={`/profiles/${user.id}`}>
+                        <UserRound className="h-4 w-4 shrink-0" />
                         Профиль
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                     {showFollow ? (
                       <div className="min-w-0">
                         <FollowButton
                           targetUserId={user.id}
                           size="sm"
-                          className="h-9 w-full whitespace-nowrap"
+                          variant="default"
+                          className="min-h-9 w-full font-medium shadow-sm"
                         />
                       </div>
                     ) : null}
                     {showChat ? (
-                      <Link href={`/chat?to=${user.id}&context=profile`} className="min-w-0">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-9 w-full gap-1.5 whitespace-nowrap"
-                        >
+                      <Button variant="outline" size="sm" className="min-h-9 w-full font-medium shadow-sm" asChild>
+                        <Link href={`/chat?to=${user.id}&context=profile`}>
                           <MessageCircle className="h-4 w-4 shrink-0" />
                           Написать
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                     ) : null}
                   </div>
                 </CardContent>

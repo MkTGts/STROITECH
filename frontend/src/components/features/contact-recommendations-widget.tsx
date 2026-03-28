@@ -99,7 +99,13 @@ export function ContactRecommendationsWidget({ limit = 8, className = "" }: Prop
                   {u.hint ? <p className="mt-0.5 text-xs text-primary/80">{u.hint}</p> : null}
                 </div>
               </Link>
-              <FollowButton targetUserId={u.id} size="sm" className="w-full" onFollowChange={() => void fetchRecs()} />
+              <FollowButton
+                targetUserId={u.id}
+                size="sm"
+                variant="default"
+                className="w-full font-medium shadow-sm"
+                onFollowChange={() => void fetchRecs()}
+              />
             </CardContent>
           </Card>
         ))}
