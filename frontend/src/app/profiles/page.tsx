@@ -153,7 +153,13 @@ export default function ProfilesPage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {users.map((user) => (
+            {users.map((user) => {
+              const showFollow = Boolean(isAuthenticated && currentUser?.id !== user.id);
+              const showChat = Boolean(isAuthenticated);
+              const footerCols =
+                1 + (showFollow ? 1 : 0) + (showChat ? 1 : 0);
+
+              return (
               <Card key={user.id} className="flex h-full flex-col transition-shadow hover:shadow-lg">
                 <CardContent className="flex flex-1 flex-col p-5">
                   <div className="flex items-start gap-4">
@@ -203,24 +209,45 @@ export default function ProfilesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="mt-4 mt-auto flex flex-wrap gap-2">
-                    <Link href={`/profiles/${user.id}`} className="min-w-0 flex-1">
-                      <Button variant="outline" size="sm" className="w-full">Профиль</Button>
-                    </Link>
-                    {isAuthenticated && currentUser?.id !== user.id && (
-                      <FollowButton targetUserId={user.id} size="sm" />
+                  <div
+                    className={cn(
+                      "mt-auto grid gap-2 border-t border-border/70 pt-4",
+                      footerCols === 1 && "grid-cols-1",
+                      footerCols === 2 && "grid-cols-1 sm:grid-cols-2",
+                      footerCols >= 3 && "grid-cols-1 sm:grid-cols-3",
                     )}
-                    {isAuthenticated && (
-                      <Link href={`/chat?to=${user.id}&context=profile`}>
-                        <Button size="sm" variant="ghost" className="gap-1">
-                          <MessageCircle className="h-4 w-4" /> Написать
+                  >
+                    <Link href={`/profiles/${user.id}`} className="min-w-0">
+                      <Button variant="outline" size="sm" className="h-9 w-full whitespace-nowrap">
+                        Профиль
+                      </Button>
+                    </Link>
+                    {showFollow ? (
+                      <div className="min-w-0">
+                        <FollowButton
+                          targetUserId={user.id}
+                          size="sm"
+                          className="h-9 w-full whitespace-nowrap"
+                        />
+                      </div>
+                    ) : null}
+                    {showChat ? (
+                      <Link href={`/chat?to=${user.id}&context=profile`} className="min-w-0">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9 w-full gap-1.5 whitespace-nowrap"
+                        >
+                          <MessageCircle className="h-4 w-4 shrink-0" />
+                          Написать
                         </Button>
                       </Link>
-                    )}
+                    ) : null}
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            );
+            })}
           </div>
 
           {totalPages > 1 && (

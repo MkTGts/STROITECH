@@ -18,10 +18,18 @@ export type ContentReportQueueItem = {
 
 export type ModerationMetrics = {
   period: { from: string; to: string };
+  /** Уникальные пользователи с активностью в периоде (просмотры ленты, лайки, посты, комментарии, чат). */
+  visitingUsers: number;
   newUsers: number;
   newFeedPosts: number;
   newFollows: number;
   distinctPostAuthors: number;
   distinctCommentAuthors: number;
   distinctActiveUsers: number;
+  /** Объявления со статусом active, createdAt в периоде. */
+  publishedListings: number;
+  /** Объекты active|completed, видимые, createdAt в периоде. */
+  publishedObjects: number;
+  /** Количество отправленных сообщений в чате. */
+  chatMessagesSent: number;
 };

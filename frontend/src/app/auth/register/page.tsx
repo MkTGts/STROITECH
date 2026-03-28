@@ -9,11 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RegionSelect } from "@/components/ui/region-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store";
 import { toast } from "sonner";
-import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const ROLES = [
   { value: "supplier", label: "Поставщик", icon: Package, description: "Продаю стройматериалы" },
@@ -120,23 +119,13 @@ export default function RegisterPage() {
                   />
                 </div>
               </div>
-              <div>
-                <Label>Регион</Label>
-                <div className="mt-1">
-                  <Select value={form.region} onValueChange={(value) => updateField("region", value)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Выберите регион России" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                      {RUSSIAN_REGIONS.map((region) => (
-                        <SelectItem key={region} value={region}>
-                          {region}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <RegionSelect
+                className="mt-1"
+                label="Регион"
+                value={form.region}
+                onValueChange={(value) => updateField("region", value)}
+                placeholder="Выберите регион России"
+              />
               <div>
                 <Label htmlFor="email">Email</Label>
                 <Input

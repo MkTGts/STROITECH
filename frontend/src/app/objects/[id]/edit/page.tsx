@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RUSSIAN_REGIONS } from "@/constants/regions";
+import { RegionSelect } from "@/components/ui/region-select";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -144,22 +143,13 @@ export default function EditObjectPage() {
               />
             </div>
 
-            <div>
-              <Label>Регион</Label>
-              <Select
-                value={form.region}
-                onValueChange={(value) => setForm((p) => ({ ...p, region: value }))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите регион России" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                  {RUSSIAN_REGIONS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <RegionSelect
+              label="Регион"
+              value={form.region}
+              onValueChange={(value) => setForm((p) => ({ ...p, region: value }))}
+              optional
+              placeholder="Выберите регион России"
+            />
 
             <div className="flex flex-col gap-2">
               <Button type="submit" className="w-full" disabled={saving}>

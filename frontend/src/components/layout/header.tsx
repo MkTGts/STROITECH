@@ -53,7 +53,7 @@ const SOCIAL_NAV: NavLinkItem[] = [
 ];
 
 const WORK_NAV: NavLinkItem[] = [
-  { href: "/objects", label: "Объекты", icon: Building2 },
+  { href: "/objects", label: "Управление объектами", icon: Building2 },
   { href: "/chat", label: "Чат", icon: MessageCircle },
 ];
 

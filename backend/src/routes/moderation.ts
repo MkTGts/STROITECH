@@ -258,6 +258,12 @@ export async function moderationRoutes(app: FastifyInstance): Promise<void> {
       newFollows,
       postAuthors,
       commentAuthors,
+      feedViewers,
+      feedLikers,
+      messageSenders,
+      publishedListings,
+      publishedObjects,
+      chatMessagesSent,
     ] = await Promise.all([
       prisma.user.count({ where: { createdAt: whereRange } }),
       prisma.feedPost.count({
@@ -274,20 +280,58 @@ export async function moderationRoutes(app: FastifyInstance): Promise<void> {
         select: { authorId: true },
         distinct: ["authorId"],
       }),
+      prisma.feedPostView.findMany({
+        where: { firstViewedAt: whereRange },
+        select: { viewerId: true },
+        distinct: ["viewerId"],
+      }),
+      prisma.feedPostLike.findMany({
+        where: { createdAt: whereRange },
+        select: { userId: true },
+        distinct: ["userId"],
+      }),
+      prisma.message.findMany({
+        where: { createdAt: whereRange },
+        select: { senderId: true },
+        distinct: ["senderId"],
+      }),
+      prisma.listing.count({
+        where: { status: "active", createdAt: whereRange },
+      }),
+      prisma.constructionObject.count({
+        where: {
+          status: { in: ["active", "completed"] },
+          isVisible: true,
+          createdAt: whereRange,
+        },
+      }),
+      prisma.message.count({ where: { createdAt: whereRange } }),
     ]);
 
     const postAuthorSet = new Set(postAuthors.map((p) => p.authorId));
     const commentAuthorSet = new Set(commentAuthors.map((c) => c.authorId));
     const activeUnion = new Set([...postAuthorSet, ...commentAuthorSet]);
 
+    const visitingUsers = new Set<string>([
+      ...postAuthors.map((p) => p.authorId),
+      ...commentAuthors.map((c) => c.authorId),
+      ...feedViewers.map((v) => v.viewerId),
+      ...feedLikers.map((l) => l.userId),
+      ...messageSenders.map((m) => m.senderId),
+    ]).size;
+
     const payload = {
       period: { from: from.toISOString(), to: to.toISOString() },
+      visitingUsers,
       newUsers,
       newFeedPosts,
       newFollows,
       distinctPostAuthors: postAuthorSet.size,
       distinctCommentAuthors: commentAuthorSet.size,
       distinctActiveUsers: activeUnion.size,
+      publishedListings,
+      publishedObjects,
+      chatMessagesSent,
     };
 
     if (q.format === "csv") {
@@ -295,12 +339,16 @@ export async function moderationRoutes(app: FastifyInstance): Promise<void> {
         "metric,value",
         `period_from,${payload.period.from}`,
         `period_to,${payload.period.to}`,
+        `visiting_users,${visitingUsers}`,
         `new_users,${newUsers}`,
         `new_feed_posts,${newFeedPosts}`,
         `new_follows,${newFollows}`,
         `distinct_post_authors,${postAuthorSet.size}`,
         `distinct_comment_authors,${commentAuthorSet.size}`,
         `distinct_active_users_union,${activeUnion.size}`,
+        `published_listings,${publishedListings}`,
+        `published_objects,${publishedObjects}`,
+        `chat_messages_sent,${chatMessagesSent}`,
       ];
       reply.header("Content-Type", "text/csv; charset=utf-8");
       reply.header("Content-Disposition", "attachment; filename=\"metrics.csv\"");

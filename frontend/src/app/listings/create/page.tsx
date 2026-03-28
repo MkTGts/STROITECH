@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RUSSIAN_REGIONS } from "@/constants/regions";
+import { RegionSelect } from "@/components/ui/region-select";
 import { useAuthStore } from "@/lib/store";
 import { api, uploadFile } from "@/lib/api";
 import { toast } from "sonner";
@@ -184,21 +184,13 @@ export default function CreateListingPage() {
               </Select>
             </div>
 
-            <div>
-              <Label>Регион</Label>
-              <Select value={form.region} onValueChange={(v) => updateField("region", v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите регион России" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                  {RUSSIAN_REGIONS.map((region) => (
-                    <SelectItem key={region} value={region}>
-                      {region}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <RegionSelect
+              label="Регион"
+              value={form.region}
+              onValueChange={(v) => updateField("region", v)}
+              optional
+              placeholder="Необязательно"
+            />
 
             <div>
               <Label>Заголовок</Label>

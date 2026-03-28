@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { UserRole, type Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
-import { getUserId, getUserRole } from "../lib/auth";
+import { generateTemporaryPassword, getUserId, getUserRole, hashPassword } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
 import { getProfileActivityPage } from "../lib/profile-activity";
 import { getContactRecommendations } from "../lib/contact-recommendations";
@@ -313,6 +313,48 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
           verifiedBy,
           ...counts,
         },
+      };
+    },
+  );
+
+  app.post(
+    "/:id/reset-password",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (getUserRole(request) !== UserRole.moderator) {
+        return reply.status(403).send({ success: false, message: "Недостаточно прав" });
+      }
+      const { id: targetId } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(targetId).success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const actorId = getUserId(request);
+      const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+      if (!target) {
+        return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+      }
+
+      const temporaryPassword = generateTemporaryPassword(14);
+      const passwordHash = await hashPassword(temporaryPassword);
+
+      await prisma.$transaction([
+        prisma.verificationAudit.create({
+          data: {
+            targetId,
+            actorId,
+            action: "password_reset",
+            note: null,
+          },
+        }),
+        prisma.user.update({
+          where: { id: targetId },
+          data: { passwordHash },
+        }),
+      ]);
+
+      return {
+        success: true,
+        data: { temporaryPassword },
       };
     },
   );

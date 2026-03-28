@@ -23,11 +23,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RegionSelect } from "@/components/ui/region-select";
 import { useAuthStore } from "@/lib/store";
 import { api, uploadAvatar } from "@/lib/api";
 import { toast } from "sonner";
-import { RUSSIAN_REGIONS } from "@/constants/regions";
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",
@@ -81,9 +80,11 @@ export default function DashboardPage() {
     try {
       const companyName =
         form.companyName.trim() === "" ? null : form.companyName.trim();
+      const body: Record<string, unknown> = { ...form, companyName };
+      if (!String(form.region ?? "").trim()) delete body.region;
       await api("/users/profile", {
         method: "PUT",
-        body: JSON.stringify({ ...form, companyName }),
+        body: JSON.stringify(body),
       });
       await fetchUser();
       setEditMode(false);
@@ -251,24 +252,13 @@ export default function DashboardPage() {
                     <Label>Телефон</Label>
                     <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
                   </div>
-                  <div>
-                    <Label>Регион</Label>
-                    <Select
-                      value={form.region}
-                      onValueChange={(value) => setForm((p) => ({ ...p, region: value }))}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Выберите регион России" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                        {RUSSIAN_REGIONS.map((region) => (
-                          <SelectItem key={region} value={region}>
-                            {region}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <RegionSelect
+                    label="Регион"
+                    value={form.region}
+                    onValueChange={(value) => setForm((p) => ({ ...p, region: value }))}
+                    optional
+                    placeholder="Выберите регион России"
+                  />
                   <div>
                     <Label>Компания (необязательно)</Label>
                     <Input

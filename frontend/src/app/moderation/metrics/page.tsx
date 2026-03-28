@@ -93,8 +93,8 @@ export default function ModerationMetricsPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-bold">Метрики</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        За выбранный период: новые пользователи, публикации в ленте (по дате выхода), новые подписки на профили (follow),
-        активность авторов постов и комментариев.
+        За выбранный период: посещаемость (по активности авторизованных пользователей), регистрации, объявления и объекты
+        (по дате создания), сообщения в чате, лента и подписки на профили.
       </p>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
@@ -121,7 +121,27 @@ export default function ModerationMetricsPage() {
         </div>
       ) : data ? (
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <MetricCard
+            title="Посетители сайта (уникальные)"
+            value={data.visitingUsers}
+            hint="Авторизованные: просмотры ленты, лайки, посты, комментарии или чат за период"
+          />
           <MetricCard title="Новые пользователи" value={data.newUsers} hint="Регистрации за период" />
+          <MetricCard
+            title="Опубликовано объявлений"
+            value={data.publishedListings}
+            hint="Статус «Активно», дата создания в периоде"
+          />
+          <MetricCard
+            title="Опубликовано объектов"
+            value={data.publishedObjects}
+            hint="Статусы «Активен» или «Завершён», видимые, дата создания в периоде"
+          />
+          <MetricCard
+            title="Сообщений в чате"
+            value={data.chatMessagesSent}
+            hint="Отправлено за период"
+          />
           <MetricCard title="Публикации в ленте" value={data.newFeedPosts} hint="Посты по publishedAt" />
           <MetricCard title="Новые подписки на профили" value={data.newFollows} hint="UserFollow, не тариф" />
           <MetricCard title="Авторы постов (уникальные)" value={data.distinctPostAuthors} />

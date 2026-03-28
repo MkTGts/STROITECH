@@ -175,6 +175,38 @@ paths:
         "403":
           description: Не модератор
 
+  /users/{id}/reset-password:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [moderation]
+      summary: Сброс пароля пользователя (только moderator); одноразовый ответ с временным паролем
+      description: Доступно для любого пользователя, включая самого модератора. Пароль показывается только в теле ответа; повторный просмотр невозможен.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    required: [temporaryPassword]
+                    properties:
+                      temporaryPassword:
+                        type: string
+                        description: Временный пароль; передать пользователю по защищённому каналу
+        "403":
+          description: Не модератор
+        "404":
+          description: Пользователь не найден
+
   /communities:
     get:
       tags: [communities]

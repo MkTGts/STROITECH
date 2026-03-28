@@ -14,6 +14,9 @@ import {
   LayoutList,
   Images,
   History,
+  KeyRound,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RegionSelect } from "@/components/ui/region-select";
 import { ListingCard } from "@/components/features/listing-card";
 import { FollowButton } from "@/components/features/follow-button";
 import { VerifiedBadge } from "@/components/features/verified-badge";
@@ -40,9 +43,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/store";
-import { api } from "@/lib/api";
+import { adminResetUserPassword, api, ApiError } from "@/lib/api";
 import type { FeedPostListItem, PhotoAlbumDetail, PhotoAlbumListItem, ProfileActivityItem } from "shared";
-import { RUSSIAN_REGIONS } from "@/constants/regions";
 import { toast } from "sonner";
 
 function formatShortDate(iso: string) {
@@ -62,6 +64,7 @@ const ROLE_LABELS: Record<string, string> = {
   builder: "Строитель",
   equipment: "Техника",
   client: "Заказчик",
+  moderator: "Модератор",
 };
 
 function normalizeFeedPostItem(p: FeedPostListItem): FeedPostListItem {
@@ -107,6 +110,11 @@ export default function ProfileDetailPage() {
     companyName: "",
     description: "",
   });
+  const [pwdResetOpen, setPwdResetOpen] = useState(false);
+  const [pwdResetStep, setPwdResetStep] = useState<"confirm" | "result">("confirm");
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [pwdResetting, setPwdResetting] = useState(false);
+  const [pwdCopied, setPwdCopied] = useState(false);
 
   async function refreshProfile(): Promise<void> {
     if (!id || typeof id !== "string") return;
@@ -286,6 +294,29 @@ export default function ProfileDetailPage() {
 
   const isModerator = isAuthenticated && user?.role === "moderator";
 
+  function openPasswordResetDialog(): void {
+    setPwdResetStep("confirm");
+    setGeneratedPassword(null);
+    setPwdCopied(false);
+    setPwdResetOpen(true);
+  }
+
+  async function runPasswordReset(): Promise<void> {
+    if (!id || typeof id !== "string") return;
+    setPwdResetting(true);
+    try {
+      const pwd = await adminResetUserPassword(id);
+      setGeneratedPassword(pwd);
+      setPwdResetStep("result");
+      toast.success("Новый временный пароль выдан");
+    } catch (err: unknown) {
+      const msg = err instanceof ApiError ? err.message : "Не удалось сбросить пароль";
+      toast.error(msg);
+    } finally {
+      setPwdResetting(false);
+    }
+  }
+
   async function handleSaveProfile(): Promise<void> {
     if (!id || typeof id !== "string") return;
     if (!form.name.trim()) {
@@ -357,16 +388,28 @@ export default function ProfileDetailPage() {
                   </Link>
                 </span>
                 {isModerator && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setEditMode((prev) => !prev)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    {editMode ? "Отмена" : "Редактировать профиль"}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setEditMode((prev) => !prev)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      {editMode ? "Отмена" : "Редактировать профиль"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={openPasswordResetDialog}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      Сбросить пароль
+                    </Button>
+                  </>
                 )}
               </div>
               {profile.isVerified && profile.verifiedAt ? (
@@ -393,22 +436,13 @@ export default function ProfileDetailPage() {
                     <Label>Телефон</Label>
                     <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
                   </div>
-                  <div>
-                    <Label>Регион</Label>
-                    <Select value={form.region || "__none__"} onValueChange={(value) => setForm((p) => ({ ...p, region: value === "__none__" ? "" : value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите регион" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[min(16rem,50vh)]" position="popper">
-                        <SelectItem value="__none__">Не указан</SelectItem>
-                        {RUSSIAN_REGIONS.map((region) => (
-                          <SelectItem key={region} value={region}>
-                            {region}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <RegionSelect
+                    label="Регион"
+                    value={form.region}
+                    onValueChange={(value) => setForm((p) => ({ ...p, region: value }))}
+                    optional
+                    placeholder="Выберите регион"
+                  />
                   <div>
                     <Label>Компания</Label>
                     <Input value={form.companyName} onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))} />
@@ -768,6 +802,73 @@ export default function ProfileDetailPage() {
             <Button type="button" disabled={creatingAlbum} onClick={() => void handleCreateAlbum()}>
               {creatingAlbum ? "Создание..." : "Создать"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pwdResetOpen}
+        onOpenChange={(open) => {
+          setPwdResetOpen(open);
+          if (!open) {
+            setPwdResetStep("confirm");
+            setGeneratedPassword(null);
+            setPwdCopied(false);
+          }
+        }}
+      >
+        <DialogContent showCloseButton className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Сброс пароля</DialogTitle>
+            {pwdResetStep === "confirm" ? (
+              <DialogDescription>
+                Будет сгенерирован новый временный пароль для{" "}
+                <span className="font-medium text-foreground">{profile?.name}</span>. Сохраните его и передайте
+                пользователю по защищённому каналу. Повторно посмотреть пароль в системе будет нельзя. Старый пароль
+                перестанет действовать; текущие сессии JWT останутся активными до истечения срока токена.
+              </DialogDescription>
+            ) : (
+              <DialogDescription>
+                Скопируйте пароль сейчас. После закрытия окна он не отобразится снова.
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          {pwdResetStep === "result" && generatedPassword ? (
+            <div className="flex gap-2">
+              <Input readOnly className="font-mono text-sm" value={generatedPassword} />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                title="Копировать"
+                onClick={() => {
+                  void navigator.clipboard.writeText(generatedPassword).then(() => {
+                    setPwdCopied(true);
+                    toast.success("Скопировано");
+                    setTimeout(() => setPwdCopied(false), 2000);
+                  });
+                }}
+              >
+                {pwdCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            {pwdResetStep === "confirm" ? (
+              <>
+                <Button type="button" variant="outline" onClick={() => setPwdResetOpen(false)}>
+                  Отмена
+                </Button>
+                <Button type="button" disabled={pwdResetting} onClick={() => void runPasswordReset()}>
+                  {pwdResetting ? "Генерация…" : "Сгенерировать пароль"}
+                </Button>
+              </>
+            ) : (
+              <Button type="button" onClick={() => setPwdResetOpen(false)}>
+                Готово
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { RegionSelect } from "@/components/ui/region-select";
 import { api, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { toast } from "sonner";
@@ -73,10 +74,14 @@ export default function NewCommunityPage() {
           <Label htmlFor="c-desc">Описание</Label>
           <Textarea id="c-desc" value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1" rows={4} maxLength={8000} />
         </div>
-        <div>
-          <Label htmlFor="c-region">Регион (необязательно)</Label>
-          <Input id="c-region" value={region} onChange={(e) => setRegion(e.target.value)} className="mt-1" maxLength={200} placeholder="Например: Московская область" />
-        </div>
+        <RegionSelect
+          id="c-region"
+          label="Регион (необязательно)"
+          value={region}
+          onValueChange={setRegion}
+          optional
+          placeholder="Выберите регион из списка"
+        />
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Создать"}
         </Button>

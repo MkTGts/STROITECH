@@ -42,6 +42,15 @@ export async function patchUserVerification(
   });
 }
 
+/** Сброс пароля пользователя модератором; временный пароль только в ответе. */
+export async function adminResetUserPassword(userId: string): Promise<string> {
+  const res = await api<{ success: boolean; data: { temporaryPassword: string } }>(
+    `/users/${userId}/reset-password`,
+    { method: "POST" },
+  );
+  return res.data.temporaryPassword;
+}
+
 type FetchOptions = RequestInit & {
   params?: Record<string, string | number | undefined>;
 };

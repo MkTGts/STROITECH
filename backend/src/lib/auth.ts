@@ -1,7 +1,23 @@
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { FastifyInstance, FastifyRequest } from "fastify";
 
 const SALT_ROUNDS = 12;
+
+/** Без похожих символов 0/O, 1/l/I для одноразовых паролей. */
+const TEMP_PASSWORD_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/**
+ * Криптостойкий временный пароль (длина по умолчанию 14).
+ */
+export function generateTemporaryPassword(length = 14): string {
+  const bytes = randomBytes(length);
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += TEMP_PASSWORD_ALPHABET[bytes[i]! % TEMP_PASSWORD_ALPHABET.length]!;
+  }
+  return out;
+}
 
 /**
  * Hash a plain-text password using bcrypt.
