@@ -349,7 +349,7 @@ async function canModifyComment(
   postCommunityId: string | null,
 ): Promise<boolean> {
   if (authorId === userId) return true;
-  if (role === "moderator") return true;
+  if (role === UserRole.moderator) return true;
   return canModerateCommunityContent(userId, role, postCommunityId);
 }
 
@@ -358,7 +358,7 @@ async function canModifyFeedPost(
   role: string,
   post: { authorId: string; communityId: string | null },
 ): Promise<boolean> {
-  if (role === "moderator") return true;
+  if (role === UserRole.moderator) return true;
   if (post.authorId === userId) return true;
   return canModerateCommunityContent(userId, role, post.communityId);
 }

@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
+import { UserRole } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getUserId, getOptionalUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
@@ -465,15 +466,15 @@ async function _notifyExecutors(objectId: string, stages: any[]): Promise<void> 
   const hasMaterials = stages.some((s) => s.materialsRequest);
   const hasEquipment = stages.some((s) => s.equipmentRequest);
 
-  const roles: string[] = [];
-  if (hasBuilders) roles.push("builder");
-  if (hasMaterials) roles.push("supplier");
-  if (hasEquipment) roles.push("equipment");
+  const roles: UserRole[] = [];
+  if (hasBuilders) roles.push(UserRole.builder);
+  if (hasMaterials) roles.push(UserRole.supplier);
+  if (hasEquipment) roles.push(UserRole.equipment);
 
   if (roles.length === 0) return;
 
   const users = await prisma.user.findMany({
-    where: { role: { in: roles as any } },
+    where: { role: { in: roles } },
     select: { id: true },
     take: 100,
   });

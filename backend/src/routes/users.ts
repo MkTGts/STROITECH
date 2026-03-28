@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
+import { UserRole, type Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
@@ -69,6 +70,17 @@ const managerSchema = z.object({
   position: z.string().optional(),
 });
 
+/** Роли исполнителей в каталоге участников для гостей и не-модераторов. */
+const DIRECTORY_EXECUTOR_ROLES: UserRole[] = [UserRole.supplier, UserRole.builder, UserRole.equipment];
+
+/** Кандидаты на верификацию (без модераторов). */
+const VERIFICATION_CANDIDATE_ROLES: UserRole[] = [
+  UserRole.supplier,
+  UserRole.builder,
+  UserRole.equipment,
+  UserRole.client,
+];
+
 /**
  * User and profile management routes.
  */
@@ -76,19 +88,22 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest) => {
     const { role, search, region, page = "1", limit = "20" } = request.query as Record<string, string>;
     const skip = (Number(page) - 1) * Number(limit);
-    const where: any = {};
+    const where: Prisma.UserWhereInput = {};
     const isAuthenticated = Boolean(request.user);
     const requesterRole = (request.user as { role?: string } | undefined)?.role;
     const isModerator = requesterRole === "moderator";
 
     if (role) {
       if (!isModerator && (role === "moderator" || role === "client")) {
-        where.role = { in: ["supplier", "builder", "equipment"] };
+        where.role = { in: DIRECTORY_EXECUTOR_ROLES };
       } else {
-        where.role = role;
+        const parsed = z.nativeEnum(UserRole).safeParse(role);
+        if (parsed.success) {
+          where.role = parsed.data;
+        }
       }
     } else if (!isModerator) {
-      where.role = { in: ["supplier", "builder", "equipment"] };
+      where.role = { in: DIRECTORY_EXECUTOR_ROLES };
     }
     if (region) where.region = region;
     if (search) {
@@ -147,12 +162,8 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       const q = moderationVerificationCandidatesQuerySchema.parse(request.query);
       const skip = (q.page - 1) * q.limit;
       const search = q.search?.trim();
-      const where: {
-        role?: { in: string[] };
-        isVerified?: boolean;
-        OR?: Array<Record<string, unknown>>;
-      } = {
-        role: { in: ["supplier", "builder", "equipment", "client"] },
+      const where: Prisma.UserWhereInput = {
+        role: { in: VERIFICATION_CANDIDATE_ROLES },
       };
       if (q.unverifiedOnly) {
         where.isVerified = false;

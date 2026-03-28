@@ -1,12 +1,12 @@
-import type { Prisma } from "@prisma/client";
+import { UserRole, type Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 
-const PRO_ROLES = ["supplier", "builder", "equipment"] as const;
+const PRO_ROLES: UserRole[] = [UserRole.supplier, UserRole.builder, UserRole.equipment];
 
 type ScoreEntry = { score: number; reasons: Set<string> };
 
-function isProRole(role: string): boolean {
-  return (PRO_ROLES as readonly string[]).includes(role);
+function isProRole(role: UserRole): boolean {
+  return PRO_ROLES.includes(role);
 }
 
 function hintFrom(reasons: Set<string>): string | undefined {
@@ -95,13 +95,13 @@ export async function getContactRecommendations(viewerId: string, limit: number)
   const regionTrim = viewer.region && String(viewer.region).trim().length > 0 ? String(viewer.region).trim() : null;
 
   const roleWhere = (): Prisma.UserWhereInput["role"] => {
-    if (viewer.role === "client" || viewer.role === "moderator") {
-      return { in: [...PRO_ROLES] };
+    if (viewer.role === UserRole.client || viewer.role === UserRole.moderator) {
+      return { in: PRO_ROLES };
     }
     if (isProRole(viewer.role)) {
-      return viewer.role as (typeof PRO_ROLES)[number];
+      return viewer.role;
     }
-    return { in: [...PRO_ROLES] };
+    return { in: PRO_ROLES };
   };
 
   const regionalWhere: Prisma.UserWhereInput = {
