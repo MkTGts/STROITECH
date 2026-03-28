@@ -45,6 +45,12 @@ export function getOptionalUserId(request: FastifyRequest): string | null {
   return user?.userId ?? null;
 }
 
+/** Роль из JWT при optional auth; иначе null. */
+export function getOptionalUserRole(request: FastifyRequest): string | null {
+  const user = request.user as { role?: string } | undefined;
+  return user?.role ?? null;
+}
+
 /**
  * Extract the authenticated user's role from the JWT-decoded request.
  */

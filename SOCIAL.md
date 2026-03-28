@@ -1,6 +1,6 @@
 # Социальная платформа для строителей: концепция и план
 
-Документ фиксирует идею развития **Объекты.online / STROITECH** в сторону социальной сети профессионального круга (аналог по духу «ВКонтакте», но сценарии — стройка: подрядчики, поставщики, техника, заказчики). Код по этому документу пока не менялся; ниже — опора на текущую архитектуру и поэтапный план.
+Документ фиксирует идею развития **Объекты.online / STROITECH** в сторону социальной сети профессионального круга (аналог по духу «ВКонтакте», но сценарии — стройка: подрядчики, поставщики, техника, заказчики). По плану этапов **A–M** реализация в репозитории ведётся и фиксируется в **журнале выполнения** внизу файла; ниже — опора на архитектуру и шаги плана.
 
 ## Что уже есть в проекте (база)
 
@@ -322,4 +322,86 @@
   5. **Frontend:** `FeedTagChips`, `FeedPlainSocialText`, `articleMarkdownWithMentions`; страница **`/lenta/tag/[slug]`** (вкладки статьи / стена+репосты); подсветка в карточках профиля, «Моя лента», странице поста; **`FeedMentionPicker`** (поиск `/users?search=`) в `WallPostForm`, `FeedPostForm`, `ShareToWallButton`.
   6. **OpenAPI-черновик:** `tag`, `GET /feed/tags/popular`, `GET /feed/posts`, правки home/recommended в `backend/docs/social-api-draft.openapi.yaml`.
 - **После pull:** применить миграцию **`20260326250000_feed_tags_mentions`** и **`npx prisma generate`** в каталоге `backend`.
-- **Следующий этап:** **H** — лента активности на профиле (идея 9 в SOCIAL.md).
+
+### Этап H — лента активности на профиле (2026-03-27)
+
+- **Выполнено полностью:** да (v1: агрегирующий `GET` без отдельной таблицы; посты стены/статьи намеренно не дублируются — см. вкладки «Стена» / «Статьи»).
+- **Что сделано:**
+  1. **Prisma / миграция:** у `ObjectStage` поле **`updatedAt`** (`@updatedAt`), индекс `object_id` — файл `backend/prisma/migrations/20260327120000_object_stage_updated_at/migration.sql`.
+  2. **Backend:** модуль `backend/src/lib/profile-activity.ts` — объединение активных **объявлений** (`createdAt`), **альбомов** (`createdAt`), строк **этапа объекта** со статусом **не** `pending` (сортировка по `updatedAt` этапа); публично для гостей как и профиль. Маршрут **`GET /users/:id/activity`** (page/limit) в `backend/src/routes/users.ts` **до** `GET /users/:id`.
+  3. **`shared`:** типы `ProfileActivityItem`, `ProfileActivityType` в `shared/src/types/profile-activity.ts`.
+  4. **Frontend:** вкладка **«Активность»** на `profiles/[id]` с карточками и «Загрузить ещё»; подсказка про границу с лентой постов.
+  5. **OpenAPI-черновик:** путь `GET /users/{id}/activity` в `backend/docs/social-api-draft.openapi.yaml`.
+- **После pull:** применить миграцию **`20260327120000_object_stage_updated_at`** и **`npx prisma generate`** в `backend`.
+- **Следующий этап:** **I** — рекомендации контактов (идея 6 в SOCIAL.md).
+
+### Этап I — рекомендации контактов (2026-03-27)
+
+- **Выполнено полностью:** да (v1: эвристики без логирования кликов; см. опциональный п. 4 в SOCIAL.md).
+- **Что сделано:**
+  1. **Backend:** `backend/src/lib/contact-recommendations.ts` — скоринг кандидатов: «двухшаговые» подписки (подписки тех, на кого подписан пользователь), пересечение **категорий активных объявлений**, отбор по **региону и роли** (клиент/модератор → исполнители в регионе; исполнитель → своя роль и регион при заполненном регионе, иначе своя роль среди новых id). Исключены **self** и уже **подписанные**.
+  2. **Маршрут:** **`GET /users/recommendations`** (JWT), query `limit` (1…20, по умолчанию 8). Зарегистрирован в `users.ts` сразу после **`GET /users`** (до `/:id/...`).
+  3. **`shared`:** тип **`ContactRecommendationItem`** (`shared/src/types/contact-recommendations.ts`).
+  4. **Frontend:** **`ContactRecommendationsWidget`** — главная (блок после «В ленте») и страница **`/profiles`** (до фильтров); подсказка `hint`, кнопка **Follow**, обновление списка после подписки.
+  5. **OpenAPI-черновик:** описан `GET /users/recommendations`.
+- **Следующий этап:** **J** — верификация и бейджи (идея 8 в SOCIAL.md).
+
+### Этап J — верификация и бейджи (2026-03-27)
+
+- **Выполнено полностью:** да (v1: ручная выдача/снятие модератором, журнал в `verification_audits`, публичная справка).
+- **Что сделано:**
+  1. **Prisma / миграция:** у `User` поля `verifiedAt`, `verifiedById`, `verificationNote`; модель `VerificationAudit` (`verification_audits`). Файл: `backend/prisma/migrations/20260327143000_user_verification_audit/migration.sql`.
+  2. **Backend (`users.ts`):** `GET /users/moderation/verification-candidates` (JWT, только `moderator`; поиск, пагинация, `unverifiedOnly` по умолчанию true); `PATCH /users/:id/verification` — `granted` + опциональный `note`, запись аудита и обновление флагов; маршруты зарегистрированы **до** `/:id/follow-status`. **`GET /users/:id`:** в ответе `verifiedAt` (ISO); `verificationNote`, `verifiedById`, `verifiedBy` — только для модератора. **`auth` `_sanitizeUser`:** служебные поля верификации не отдаются в `/me` и при логине. **`PUT /users/profile`:** то же для самообслуживания. **`chat`:** в собеседнике списка диалогов добавлено `isVerified`.
+  3. **`shared`:** тип `VerificationCandidateItem` в `shared/src/types/verification.ts`.
+  4. **Frontend:** компонент **`VerifiedBadge`**; бейдж на **`/profiles`**, профиле, в **чате** (список, шапка, черновик диалога); страница **`/moderation/verification`**; пункт **«Верификация»** в шапке для модератора; публичная **`/verifikatsiya`** и ссылка в подвале. **`fetchVerificationCandidates`**, **`patchUserVerification`** в `frontend/src/lib/api.ts`.
+  5. **OpenAPI-черновик:** `GET /users/moderation/verification-candidates`, `PATCH /users/{id}/verification`.
+- **После pull:** в каталоге `backend` выполнить миграцию **`20260327143000_user_verification_audit`** и **`npx prisma generate`**.
+- **Следующий этап:** **K** — группы / сообщества (идея 4 в SOCIAL.md).
+
+### Этап K — группы / сообщества (2026-03-28)
+
+- **Выполнено полностью:** да (v1: открытые сообщества, посты и альбомы с привязкой `communityId`, лента только на странице сообщества; персональная лента без постов групп).
+- **Что сделано:**
+  1. **Prisma / миграция:** enum `CommunityMemberRole` (`admin`, `moderator`, `member`), модели `Community`, `CommunityMember`; у `FeedPost` и `PhotoAlbum` опциональное поле **`communityId`** (`ON DELETE SET NULL`), индекс `(community_id, published_at DESC)` у постов. Файл: `backend/prisma/migrations/20260328120000_communities/migration.sql`.
+  2. **Backend:** модуль `backend/src/lib/community-permissions.ts`; регистрация **`backend/src/routes/communities.ts`** (`/api/communities`) — список/создание, `GET|PATCH|DELETE /:id`, `GET /:id/members`, `GET /:id/albums`, `POST /:id/join|leave`, `DELETE|PATCH /:id/members/:userId`. Публикация в ленте группы только для **участников**; **удаление/редактирование постов и комментариев** — автор, глобальный `moderator` или **admin/moderator** сообщества.
+  3. **Backend `feed`:** в **`GET /feed/home`** и **`GET /feed/recommended`** условие **`communityId: null`**, чтобы посты сообществ не смешивались с лентой подписок; **`GET /feed/posts`** — query **`communityId`**; **`POST /feed/posts`** — тело **`communityId?`**; в выдаче списков/детали поста — объект **`community` { id, title }**.
+  4. **Backend `albums`:** в создании/обновлении альбома опциональный **`communityId`** (нужно быть участником сообщества).
+  5. **`shared`:** типы сообщества в `shared/src/types/community.ts`; у **`FeedPostListItem`** поле **`community`**, у **`PhotoAlbumListItem`** — **`communityId`**.
+  6. **Frontend:** пункт **«Сообщества»** в шапке; **`/communities`** (поиск с debounce), **`/communities/new`**, **`/communities/[id]`** (вкладки лента стена/статьи, участники, альбомы; вступить/выйти; композер стены через **`WallPostForm`** с `communityId`; админ — роли модератора; staff — исключение участников). Расширены **`canManageFeedPost`** и **`WallPostForm`** под контекст сообщества.
+  7. **OpenAPI-черновик:** тег `communities`, пути `/communities/...`.
+- **После pull:** в каталоге `backend` выполнить миграцию **`20260328120000_communities`** и **`npx prisma generate`**.
+- **Следующий этап:** **L** — события (идея 5 в SOCIAL.md).
+
+### Этап L — события (2026-03-28)
+
+- **Выполнено полностью:** да (v1: публичные карточки, RSVP, уведомления организатору и in-app напоминание «иду» за сутки до старта через cron-секрет).
+- **Что сделано:**
+  1. **Prisma / миграция:** enum `EventRsvpStatus` (`going`, `maybe`, `not_going`), модели `Event`, `EventRsvp` (поле `reminder_notified_at` для однократного напоминания); у `NotificationType` значения **`event_rsvp`**, **`event_reminder`**. Файл: `backend/prisma/migrations/20260328143000_events/migration.sql`.
+  2. **Backend:** `backend/src/routes/events.ts` (`/api/events`) — `GET /` (`when`, `communityId`, пагинация), `POST /` (создание; при `communityId` нужен член сообщества), `GET|PUT|DELETE /:id` (редактирование/удаление: автор, staff сообщества или глобальный `moderator`), `POST /:id/rsvp`; в **`GET /:id`** — поля `counts`, `attendees` по статусам, `myRsvp`, `canManage`. **`POST /reminders/dispatch`** — заголовок `X-Cron-Secret` = `EVENT_REMINDER_CRON_SECRET`, выборка RSVP `going` с `startsAt` в интервале (now; now+24h] и без `reminderNotifiedAt`, создание уведомления **`event_reminder`** и WS. При смене **`startsAt`** сбрасывается `reminderNotifiedAt` у всех RSVP события. Уведомление организатору **`event_rsvp`** при ответе «иду»/«возможно» (не дублируем при том же статусе).
+  3. **`shared`:** `shared/src/types/event.ts` (`EventListItem`, `EventDetail`, …); дополнен `notification.ts`.
+  4. **Frontend:** пункт **«События»** в шапке; **`/events`** (клиент в `events-page-client.tsx`, фильтр `?communityId=`), **`/events/new`**, **`/events/[id]`**, **`/events/[id]/edit`**; блок **«События»** на главной (`HomeEventsPreview`); вкладка **«События»** на `communities/[id]` (список предстоящих, ссылка на создание с пресетом `communityId`); иконки типов уведомлений **`event_rsvp`** / **`event_reminder`**.
+  5. **OpenAPI-черновик:** тег `events`, пути `/events/...` и `reminders/dispatch` в `backend/docs/social-api-draft.openapi.yaml`.
+  6. **Auth:** `getOptionalUserRole` в `backend/src/lib/auth.ts` для вычисления `canManage` при опциональном JWT.
+- **После pull:** в каталоге `backend` применить миграцию **`20260328143000_events`**, **`npx prisma generate`**. Для напоминаний задать **`EVENT_REMINDER_CRON_SECRET`** и периодически вызывать **`POST /api/events/reminders/dispatch`** с заголовком `X-Cron-Secret`.
+- **Следующий этап:** **M** — модерация (жалобы), метрики, полировка (SOCIAL.md).
+
+### Этап M — модерация, аналитика, полировка (2026-03-28)
+
+- **Выполнено полностью:** да (v1 по п. 1–2 этапа M; п. 3 — актуализация через журнал и OpenAPI-черновик).
+- **Что сделано:**
+  1. **Prisma / миграция:** enum **`ContentReportTargetType`** (`feed_post`, `feed_comment`), **`ContentReportStatus`** (`pending`, `closed`), модель **`ContentReport`** с уникальностью `(reporter_id, target_type, target_id)`, индекс по статусу и дате. Файл: `backend/prisma/migrations/20260328180000_content_reports/migration.sql`.
+  2. **Backend:** `backend/src/routes/moderation.ts`, префикс **`/api/moderation`** — **`POST /reports`** (JWT, проверка существования цели, запрет жалобы на свой контент, 409 при повторе), **`GET /reports`** (только `moderator`, фильтр `status`, пагинация, превью цели), **`PATCH /reports/:id`** с `{ status: "closed" }`, **`GET /metrics`** (`from`/`to` ISO, по умолчанию 30 дней; счётчики новых пользователей, постов ленты по `publishedAt`, подписок **`UserFollow`**, уникальных авторов постов/комментариев и их объединение; **`format=csv`** — ответ `text/csv`).
+  3. **Frontend:** layout модерации с поднавигацией; **`/moderation`** (обзор), **`/moderation/reports`**, **`/moderation/metrics`**; шапка ведёт на **«Модерация»** вместо прямой ссылки только на верификацию; **`ReportAbuseDialog`** на странице поста ленты (пост и комментарии). **`downloadModerationMetricsCsv`** в `frontend/src/lib/api.ts`.
+  4. **`shared`:** типы очереди и метрик в `shared/src/types/moderation.ts`.
+  5. **OpenAPI-черновик:** тег `moderation`, пути `/moderation/reports`, `/moderation/metrics`.
+- **После pull:** в каталоге `backend` применить миграцию **`20260328180000_content_reports`** и **`npx prisma generate`**.
+- **Следующий этап:** см. запись **«План A–M завершён»** ниже (нового этапа в документе пока нет).
+
+### План A–M завершён (2026-03-28)
+
+- **Выполнено полностью:** да — **все именованные этапы A–M** из раздела «Конкретный план» реализованы и отражены в журнале выше; отдельного этапа **N** в SOCIAL.md не определено.
+- **Что сделано:** зафиксировано официальное **окончание скоупа** плана (идеи **1–6, 8, 9** из таблицы доп. идей при исключённых **7, 10, 11, 12** — см. абзац про исключения в начале раздела «Конкретный план»).
+- **Следующий этап:** **не задан документом.** Дальнейшая работа возможна только после выбора направления, например:
+  - вынести в новый **этап N** одну из ранее **исключённых** тем (отзывы/рейтинг, приватность, push/email, stories/видео);
+  - или оформить отдельные задачи **вне буквенного плана** (UX, производительность, наблюдаемость, наполнение OpenAPI, тесты и т.д.).
+- **Вопрос к продукту:** какой из вариантов выше (или иной) принять следующим — нужно ваше решение, прежде чем снова вести журнал как «этап N».

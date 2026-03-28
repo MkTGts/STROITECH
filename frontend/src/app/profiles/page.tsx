@@ -12,6 +12,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/store";
 import { FollowButton } from "@/components/features/follow-button";
+import { VerifiedBadge } from "@/components/features/verified-badge";
+import { ContactRecommendationsWidget } from "@/components/features/contact-recommendations-widget";
 import { useDebounce } from "@/lib/hooks";
 import { api } from "@/lib/api";
 import { RUSSIAN_REGIONS } from "@/constants/regions";
@@ -66,6 +68,12 @@ export default function ProfilesPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold md:text-3xl">Профили участников</h1>
+
+      {isAuthenticated ? (
+        <div className="mb-10">
+          <ContactRecommendationsWidget limit={6} />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-6 lg:flex-row">
         {/* Боковая панель: категории и место для будущих критериев отбора */}
@@ -158,9 +166,12 @@ export default function ProfilesPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/profiles/${user.id}`}>
-                        <h3 className="truncate font-semibold hover:text-primary">{user.name}</h3>
-                      </Link>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <Link href={`/profiles/${user.id}`} className="min-w-0">
+                          <h3 className="truncate font-semibold hover:text-primary">{user.name}</h3>
+                        </Link>
+                        {user.isVerified ? <VerifiedBadge compact className="shrink-0 self-center" /> : null}
+                      </div>
                       <Badge variant="secondary" className="mt-1">
                         {ROLE_LABELS[user.role] || user.role}
                       </Badge>

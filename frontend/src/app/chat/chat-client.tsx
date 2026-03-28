@@ -13,6 +13,7 @@ import { sendWsMessage } from "@/lib/ws";
 import { api, uploadFile, uploadAttachment, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { VerifiedBadge } from "@/components/features/verified-badge";
 
 type ConversationItem = {
   id: string;
@@ -22,6 +23,7 @@ type ConversationItem = {
     avatarUrl: string | null;
     companyName: string | null;
     role?: string | null;
+    isVerified?: boolean;
   };
   lastMessage: { content: string; createdAt: string } | null;
   unreadCount: number;
@@ -100,6 +102,7 @@ export function ChatPageClient() {
     name: string;
     companyName: string | null;
     avatarUrl: string | null;
+    isVerified?: boolean;
   } | null>(null);
   const mountedRef = useRef(true);
 
@@ -166,6 +169,7 @@ export function ChatPageClient() {
           name: d.name,
           companyName: d.companyName ?? null,
           avatarUrl: d.avatarUrl ?? null,
+          isVerified: Boolean(d.isVerified),
         });
       })
       .catch(() => {
@@ -286,6 +290,7 @@ export function ChatPageClient() {
           name: "Тех. поддержка",
           avatarUrl: "/bot-avatar.svg",
           companyName: null,
+          isVerified: false,
         },
         lastMessage: null,
         unreadCount: supportUnreadCount,
@@ -728,8 +733,11 @@ export function ChatPageClient() {
                   )}
                 </Avatar>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="truncate text-sm font-medium">{conv.participant.name}</p>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="flex min-w-0 items-center gap-1">
+                      <p className="truncate text-sm font-medium">{conv.participant.name}</p>
+                      {conv.participant.isVerified ? <VerifiedBadge compact className="shrink-0" /> : null}
+                    </span>
                     {conv.unreadCount > 0 && (
                       <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                         {conv.unreadCount}
@@ -793,7 +801,10 @@ export function ChatPageClient() {
                             </>
                           )}
                         </Avatar>
-                        <p className="truncate font-semibold">{p.name}</p>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <p className="truncate font-semibold">{p.name}</p>
+                          {p.isVerified ? <VerifiedBadge compact className="shrink-0" /> : null}
+                        </span>
                       </>
                     );
                   })()
@@ -820,11 +831,14 @@ export function ChatPageClient() {
                         </AvatarFallback>
                       </Avatar>
                     ) : null}
-                    <p className="truncate font-semibold">
-                      {draftRecipient
-                        ? `Новый диалог — ${draftRecipient.name}`
-                        : "Новый диалог"}
-                    </p>
+                    <span className="flex min-w-0 items-center gap-1.5 font-semibold">
+                      <p className="truncate">
+                        {draftRecipient
+                          ? `Новый диалог — ${draftRecipient.name}`
+                          : "Новый диалог"}
+                      </p>
+                      {draftRecipient?.isVerified ? <VerifiedBadge compact className="shrink-0 font-normal" /> : null}
+                    </span>
                   </>
                 )}
               </div>

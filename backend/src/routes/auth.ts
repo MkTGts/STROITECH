@@ -144,6 +144,9 @@ async function _createDefaultSubscription(userId: string): Promise<void> {
 }
 
 function _sanitizeUser(user: any): Record<string, unknown> {
-  const { passwordHash, ...safe } = user;
-  return safe;
+  const { passwordHash, verificationNote, verifiedById, verifiedBy, ...safe } = user;
+  return {
+    ...safe,
+    verifiedAt: user.verifiedAt instanceof Date ? user.verifiedAt.toISOString() : user.verifiedAt ?? null,
+  };
 }

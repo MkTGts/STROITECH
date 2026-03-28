@@ -12,6 +12,7 @@ type User = {
   description: string | null;
   avatarUrl: string | null;
   isVerified: boolean;
+  verifiedAt?: string | null;
 };
 
 type AuthState = {

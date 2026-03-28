@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { FollowButton } from "@/components/features/follow-button";
+import { VerifiedBadge } from "@/components/features/verified-badge";
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",

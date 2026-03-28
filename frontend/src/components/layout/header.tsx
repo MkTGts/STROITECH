@@ -13,6 +13,9 @@ import {
   HardHat,
   Newspaper,
   Sparkles,
+  ShieldCheck,
+  UsersRound,
+  CalendarDays,
 } from "lucide-react";
 import { SiteLogo } from "@/components/branding/site-logo";
 import { Button } from "@/components/ui/button";
@@ -27,6 +30,8 @@ const NAV_ITEMS = [
   { href: "/", label: "Главная", icon: HardHat },
   { href: "/listings", label: "Объявления", icon: LayoutGrid },
   { href: "/lenta", label: "Лента", icon: Newspaper },
+  { href: "/communities", label: "Сообщества", icon: UsersRound },
+  { href: "/events", label: "События", icon: CalendarDays },
   { href: "/profiles", label: "Участники", icon: Users },
   { href: "/objects", label: "Управление объектами", icon: Building2 },
   { href: "/chat", label: "Чат", icon: MessageCircle },
@@ -87,6 +92,14 @@ export function Header() {
         <div className="hidden items-center gap-2 md:flex">
           {isAuthenticated ? (
             <>
+              {user?.role === "moderator" && (
+                <Link href="/moderation">
+                  <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground">
+                    <ShieldCheck className="h-4 w-4" />
+                    Модерация
+                  </Button>
+                </Link>
+              )}
               <Link href="/notifications">
                 <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" />
@@ -159,6 +172,14 @@ export function Header() {
               <div className="my-4 border-t" />
               {isAuthenticated ? (
                 <>
+                  {user?.role === "moderator" && (
+                    <Link href="/moderation" onClick={() => setMobileOpen(false)}>
+                      <Button variant="ghost" className="w-full justify-start gap-3">
+                        <ShieldCheck className="h-5 w-5" />
+                        Модерация
+                      </Button>
+                    </Link>
+                  )}
                   <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
                     <Button variant="ghost" className="w-full justify-start gap-3">
                       <Avatar className="h-8 w-8">

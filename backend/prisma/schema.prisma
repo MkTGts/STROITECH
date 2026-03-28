@@ -67,6 +67,14 @@ enum NotificationType {
   tender
   system
   new_follower
+  event_rsvp
+  event_reminder
+}
+
+enum EventRsvpStatus {
+  going
+  maybe
+  not_going
 }
 
 enum FeedPostStatus {
@@ -85,6 +93,22 @@ enum ShareTargetType {
   construction_object
 }
 
+enum CommunityMemberRole {
+  admin
+  moderator
+  member
+}
+
+enum ContentReportTargetType {
+  feed_post
+  feed_comment
+}
+
+enum ContentReportStatus {
+  pending
+  closed
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
@@ -97,8 +121,16 @@ model User {
   description  String?  @db.Text
   avatarUrl    String?  @map("avatar_url")
   isVerified   Boolean  @default(false) @map("is_verified")
+  verifiedAt       DateTime? @map("verified_at")
+  verifiedById     String?   @map("verified_by_id") @db.Uuid
+  verificationNote String?   @map("verification_note") @db.VarChar(500)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+
+  verifiedBy             User?                @relation("UserVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  verificationsGranted   User[]               @relation("UserVerifier")
+  verificationAuditsAsTarget VerificationAudit[] @relation("VerificationAuditTarget")
+  verificationAuditsAsActor  VerificationAudit[] @relation("VerificationAuditActor")
 
   managers              Manager[]
   listings              Listing[]
@@ -116,8 +148,49 @@ model User {
   outgoingFollows       UserFollow[]         @relation("OutgoingFollows")
   incomingFollows       UserFollow[]         @relation("IncomingFollows")
   photoAlbums           PhotoAlbum[]
+  communitiesCreated    Community[]          @relation("CommunityCreator")
+  communityMembers      CommunityMember[]
+  eventsCreated         Event[]
+  eventRsvps            EventRsvp[]
+  contentReportsFiled   ContentReport[] @relation("ContentReportReporter")
+  contentReportsClosed  ContentReport[] @relation("ContentReportClosedBy")
 
   @@map("users")
+}
+
+model Community {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  region      String?  @db.VarChar(200)
+  creatorId   String   @map("creator_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  creator   User              @relation("CommunityCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  members   CommunityMember[]
+  feedPosts FeedPost[]
+  albums    PhotoAlbum[]
+  events    Event[]
+
+  @@index([region])
+  @@index([createdAt(sort: Desc)])
+  @@map("communities")
+}
+
+model CommunityMember {
+  id          String              @id @default(uuid()) @db.Uuid
+  communityId String              @map("community_id") @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  role        CommunityMemberRole @default(member)
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([userId])
+  @@map("community_members")
 }
 
 model FeedTag {
@@ -157,6 +230,22 @@ model UserFollow {
   @@map("user_follows")
 }
 
+model VerificationAudit {
+  id        String   @id @default(uuid()) @db.Uuid
+  targetId  String   @map("target_id") @db.Uuid
+  actorId   String   @map("actor_id") @db.Uuid
+  action    String   @db.VarChar(20)
+  note      String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  target User @relation("VerificationAuditTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  actor  User @relation("VerificationAuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([targetId])
+  @@index([createdAt(sort: Desc)])
+  @@map("verification_audits")
+}
+
 model FeedPost {
   id             String              @id @default(uuid()) @db.Uuid
   authorId       String              @map("author_id") @db.Uuid
@@ -176,8 +265,10 @@ model FeedPost {
   publishedAt    DateTime            @default(now()) @map("published_at")
   createdAt      DateTime            @default(now()) @map("created_at")
   updatedAt      DateTime            @updatedAt @map("updated_at")
+  communityId    String?             @map("community_id") @db.Uuid
 
-  author   User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author    User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  community Community? @relation(fields: [communityId], references: [id], onDelete: SetNull)
   likes    FeedPostLike[]
   comments FeedComment[]
   views    FeedPostView[]
@@ -187,6 +278,7 @@ model FeedPost {
   @@index([publishedAt(sort: Desc)])
   @@index([status, publishedAt(sort: Desc)])
   @@index([status, kind, publishedAt(sort: Desc)])
+  @@index([communityId, publishedAt(sort: Desc)])
   @@map("feed_posts")
 }
 
@@ -331,15 +423,18 @@ model PhotoAlbum {
   description String?  @db.Text
   coverUrl    String?  @map("cover_url")
   objectId    String?  @map("object_id") @db.Uuid
+  communityId String?  @map("community_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  owner  User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  object ConstructionObject? @relation(fields: [objectId], references: [id], onDelete: SetNull)
-  photos AlbumPhoto[]
+  owner     User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  object    ConstructionObject? @relation(fields: [objectId], references: [id], onDelete: SetNull)
+  community Community?          @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  photos    AlbumPhoto[]
 
   @@index([ownerId, createdAt(sort: Desc)])
   @@index([objectId])
+  @@index([communityId])
   @@map("photo_albums")
 }
 
@@ -365,9 +460,11 @@ model ObjectStage {
   materialsRequest String?     @map("materials_request") @db.Text
   buildersRequest  String?     @map("builders_request") @db.Text
   equipmentRequest String?     @map("equipment_request") @db.Text
+  updatedAt        DateTime    @updatedAt @map("updated_at")
 
   object ConstructionObject @relation(fields: [objectId], references: [id], onDelete: Cascade)
 
+  @@index([objectId])
   @@map("object_stages")
 }
 
@@ -437,4 +534,62 @@ model Notification {
   @@index([userId])
   @@index([isRead])
   @@map("notifications")
+}
+
+model Event {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  startsAt    DateTime @map("starts_at")
+  isOnline    Boolean  @default(false) @map("is_online")
+  venue       String?  @db.VarChar(500)
+  creatorId   String   @map("creator_id") @db.Uuid
+  communityId String?  @map("community_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  creator   User       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  community Community? @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  rsvps     EventRsvp[]
+
+  @@index([startsAt])
+  @@index([communityId, startsAt])
+  @@map("events")
+}
+
+model EventRsvp {
+  id                 String          @id @default(uuid()) @db.Uuid
+  eventId            String          @map("event_id") @db.Uuid
+  userId             String          @map("user_id") @db.Uuid
+  status             EventRsvpStatus
+  reminderNotifiedAt DateTime?       @map("reminder_notified_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_rsvps")
+}
+
+model ContentReport {
+  id          String                  @id @default(uuid()) @db.Uuid
+  reporterId  String                  @map("reporter_id") @db.Uuid
+  targetType  ContentReportTargetType @map("target_type")
+  targetId    String                  @map("target_id") @db.Uuid
+  details     String?                 @db.Text
+  status      ContentReportStatus     @default(pending)
+  createdAt   DateTime                @default(now()) @map("created_at")
+  closedAt    DateTime?               @map("closed_at")
+  closedById  String?                 @map("closed_by_id") @db.Uuid
+
+  reporter User  @relation("ContentReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  closedBy User? @relation("ContentReportClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("content_reports")
 }

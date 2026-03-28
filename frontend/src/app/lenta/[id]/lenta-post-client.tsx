@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, MessageCircle, Pencil, Reply, Trash2 } from "lucide-react";
+import { ReportAbuseDialog } from "@/components/features/report-abuse-dialog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -356,6 +357,9 @@ function LentaPostInner({ id }: { id: string }) {
                   </Button>
                 </div>
               )}
+              {isAuthenticated && user?.id && user.id !== comment.author.id && (
+                <ReportAbuseDialog targetType="feed_comment" targetId={comment.id} />
+              )}
             </div>
           </div>
           {editingCommentId === comment.id ? (
@@ -518,6 +522,9 @@ function LentaPostInner({ id }: { id: string }) {
           </span>
           {isAuthenticated && (post.kind === "article" || post.kind === "wall") && (
             <ShareToWallButton targetType="feed_post" targetId={post.id} variant="outline" size="sm" />
+          )}
+          {isAuthenticated && user?.id && user.id !== post.author.id && (
+            <ReportAbuseDialog targetType="feed_post" targetId={post.id} />
           )}
         </div>
       </header>

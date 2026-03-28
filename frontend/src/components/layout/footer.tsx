@@ -30,6 +30,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/about" className="hover:text-primary">О нас</Link></li>
               <li><Link href="/contacts" className="hover:text-primary">Контакты</Link></li>
+              <li><Link href="/verifikatsiya" className="hover:text-primary">Верификация участников</Link></li>
             </ul>
           </div>
 

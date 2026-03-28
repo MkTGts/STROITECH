@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId } from "../lib/auth";
+import { getCommunityMembership } from "../lib/community-permissions";
 
 const MAX_PHOTOS_PER_ALBUM = 80;
 
@@ -9,12 +10,14 @@ const createAlbumSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional().nullable(),
   objectId: z.string().uuid().optional().nullable(),
+  communityId: z.string().uuid().optional().nullable(),
 });
 
 const updateAlbumSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.union([z.string().max(5000), z.null()]).optional(),
   objectId: z.union([z.string().uuid(), z.null()]).optional(),
+  communityId: z.union([z.string().uuid(), z.null()]).optional(),
 });
 
 const addPhotoSchema = z.object({
@@ -71,6 +74,7 @@ function detailPayload(album: {
   description: string | null;
   coverUrl: string | null;
   objectId: string | null;
+  communityId: string | null;
   createdAt: Date;
   photos: { id: string; albumId: string; url: string; caption: string | null; sortOrder: number; createdAt: Date }[];
   object: { id: string; title: string } | null;
@@ -82,6 +86,7 @@ function detailPayload(album: {
     description: album.description,
     coverUrl: album.coverUrl,
     objectId: album.objectId,
+    communityId: album.communityId,
     photoCount: album.photos.length,
     createdAt: album.createdAt.toISOString(),
     object: album.object,
@@ -99,12 +104,24 @@ export async function albumRoutes(app: FastifyInstance): Promise<void> {
     if (body.objectId && !(await objectOwnedByUser(userId, body.objectId))) {
       return reply.status(400).send({ success: false, message: "Объект не найден или не принадлежит вам" });
     }
+    const communityId = body.communityId ?? null;
+    if (communityId) {
+      const comm = await prisma.community.findUnique({ where: { id: communityId }, select: { id: true } });
+      if (!comm) {
+        return reply.status(400).send({ success: false, message: "Сообщество не найдено" });
+      }
+      const m = await getCommunityMembership(userId, communityId);
+      if (!m) {
+        return reply.status(403).send({ success: false, message: "Нужно состоять в сообществе, чтобы привязать альбом" });
+      }
+    }
     const album = await prisma.photoAlbum.create({
       data: {
         ownerId: userId,
         title: body.title.trim(),
         description: body.description?.trim() || null,
         objectId: body.objectId ?? null,
+        communityId,
       },
     });
     return reply.status(201).send({
@@ -264,12 +281,28 @@ export async function albumRoutes(app: FastifyInstance): Promise<void> {
       title?: string;
       description?: string | null;
       objectId?: string | null;
+      communityId?: string | null;
     } = {};
     if (body.title !== undefined) data.title = body.title.trim();
     if (body.description !== undefined) {
       data.description = body.description === null ? null : body.description.trim() || null;
     }
     if (body.objectId !== undefined) data.objectId = body.objectId;
+    if (body.communityId !== undefined) {
+      if (body.communityId === null) {
+        data.communityId = null;
+      } else {
+        const comm = await prisma.community.findUnique({ where: { id: body.communityId }, select: { id: true } });
+        if (!comm) {
+          return reply.status(400).send({ success: false, message: "Сообщество не найдено" });
+        }
+        const m = await getCommunityMembership(userId, body.communityId);
+        if (!m) {
+          return reply.status(403).send({ success: false, message: "Нужно состоять в сообществе, чтобы привязать альбом" });
+        }
+        data.communityId = body.communityId;
+      }
+    }
 
     const album = await prisma.photoAlbum.update({
       where: { id },

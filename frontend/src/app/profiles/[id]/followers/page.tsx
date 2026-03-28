@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { FollowButton } from "@/components/features/follow-button";
+import { VerifiedBadge } from "@/components/features/verified-badge";
 
 const ROLE_LABELS: Record<string, string> = {
   supplier: "Поставщик",
@@ -92,9 +93,12 @@ export default function ProfileFollowersPage() {
                       </Avatar>
                     </Link>
                     <div className="min-w-0 flex-1">
-                      <Link href={`/profiles/${u.id}`} className="font-semibold hover:text-primary">
-                        {u.name}
-                      </Link>
+                      <span className="inline-flex min-w-0 items-center gap-1">
+                        <Link href={`/profiles/${u.id}`} className="truncate font-semibold hover:text-primary">
+                          {u.name}
+                        </Link>
+                        {u.isVerified ? <VerifiedBadge compact className="shrink-0" /> : null}
+                      </span>
                       <Badge variant="secondary" className="ml-2 align-middle">
                         {ROLE_LABELS[u.role] ?? u.role}
                       </Badge>

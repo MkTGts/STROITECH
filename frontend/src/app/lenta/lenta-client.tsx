@@ -23,11 +23,20 @@ import type { FeedPostListItem } from "shared";
 export type { FeedAuthor, FeedPostListItem } from "shared";
 
 export function canManageFeedPost(
-  post: { author: { id: string } },
+  post: { author: { id: string }; community?: { id: string } },
   user: { id: string; role: string } | null | undefined,
+  opts?: { communityStaff?: boolean; communityId?: string },
 ): boolean {
   if (!user) return false;
-  return post.author.id === user.id || user.role === "moderator";
+  if (post.author.id === user.id || user.role === "moderator") return true;
+  if (
+    opts?.communityStaff &&
+    opts.communityId &&
+    post.community?.id === opts.communityId
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function formatFeedDate(iso: string) {

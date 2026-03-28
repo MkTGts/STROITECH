@@ -3,10 +3,36 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getUserId, getUserRole } from "../lib/auth";
 import { sendToUser } from "../ws/handler";
+import { getProfileActivityPage } from "../lib/profile-activity";
+import { getContactRecommendations } from "../lib/contact-recommendations";
 
 const followListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const activityQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+const recommendationsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(20).default(8),
+});
+
+const moderationVerificationCandidatesQuerySchema = z.object({
+  search: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  unverifiedOnly: z
+    .union([z.literal("true"), z.literal("false"), z.enum(["0", "1"])])
+    .optional()
+    .transform((v) => v === undefined || v === "true" || v === "1"),
+});
+
+const verificationPatchSchema = z.object({
+  granted: z.boolean(),
+  note: z.string().max(500).optional(),
 });
 
 const followUserCardSelect = {
@@ -81,7 +107,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
           region: true,
           email: true,
           phone: true,
-          description: true, avatarUrl: true, isVerified: true, createdAt: true,
+          description: true, avatarUrl: true, isVerified: true, verifiedAt: true, createdAt: true,
         },
         skip,
         take: Number(limit),
@@ -103,6 +129,182 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       },
     };
   });
+
+  app.get("/recommendations", { preHandler: [app.authenticate] }, async (request: FastifyRequest) => {
+    const viewerId = getUserId(request);
+    const q = recommendationsQuerySchema.parse(request.query);
+    const items = await getContactRecommendations(viewerId, q.limit);
+    return { success: true, data: { items } };
+  });
+
+  app.get(
+    "/moderation/verification-candidates",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (getUserRole(request) !== "moderator") {
+        return reply.status(403).send({ success: false, message: "Недостаточно прав" });
+      }
+      const q = moderationVerificationCandidatesQuerySchema.parse(request.query);
+      const skip = (q.page - 1) * q.limit;
+      const search = q.search?.trim();
+      const where: {
+        role?: { in: string[] };
+        isVerified?: boolean;
+        OR?: Array<Record<string, unknown>>;
+      } = {
+        role: { in: ["supplier", "builder", "equipment", "client"] },
+      };
+      if (q.unverifiedOnly) {
+        where.isVerified = false;
+      }
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { companyName: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      const [rows, total] = await Promise.all([
+        prisma.user.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            companyName: true,
+            role: true,
+            region: true,
+            avatarUrl: true,
+            isVerified: true,
+            verifiedAt: true,
+            email: true,
+          },
+          skip,
+          take: q.limit,
+          orderBy: [{ isVerified: "asc" }, { createdAt: "desc" }],
+        }),
+        prisma.user.count({ where }),
+      ]);
+
+      return {
+        success: true,
+        data: {
+          items: rows.map((u) => ({
+            id: u.id,
+            name: u.name,
+            companyName: u.companyName,
+            role: u.role,
+            region: u.region,
+            avatarUrl: u.avatarUrl,
+            isVerified: u.isVerified,
+            verifiedAt: u.verifiedAt ? u.verifiedAt.toISOString() : null,
+            email: u.email,
+          })),
+          total,
+          page: q.page,
+          limit: q.limit,
+          totalPages: Math.ceil(total / q.limit),
+        },
+      };
+    },
+  );
+
+  app.patch(
+    "/:id/verification",
+    { preHandler: [app.authenticate] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (getUserRole(request) !== "moderator") {
+        return reply.status(403).send({ success: false, message: "Недостаточно прав" });
+      }
+      const { id: targetId } = request.params as { id: string };
+      if (!z.string().uuid().safeParse(targetId).success) {
+        return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+      }
+      const actorId = getUserId(request);
+      if (actorId === targetId) {
+        return reply.status(400).send({ success: false, message: "Нельзя менять верификацию самому себе" });
+      }
+
+      const body = verificationPatchSchema.parse(request.body);
+      const noteTrim =
+        body.note !== undefined && String(body.note).trim() !== "" ? String(body.note).trim() : null;
+
+      const target = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, role: true } });
+      if (!target) {
+        return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+      }
+      if (target.role === "moderator") {
+        return reply.status(400).send({ success: false, message: "Верификация для роли модератора не применяется" });
+      }
+
+      const grant = body.granted;
+      const auditNote = grant ? noteTrim : noteTrim;
+
+      await prisma.$transaction([
+        prisma.verificationAudit.create({
+          data: {
+            targetId,
+            actorId,
+            action: grant ? "grant" : "revoke",
+            note: auditNote,
+          },
+        }),
+        prisma.user.update({
+          where: { id: targetId },
+          data: grant
+            ? {
+                isVerified: true,
+                verifiedAt: new Date(),
+                verifiedById: actorId,
+                verificationNote: auditNote,
+              }
+            : {
+                isVerified: false,
+                verifiedAt: null,
+                verifiedById: null,
+                verificationNote: null,
+              },
+        }),
+      ]);
+
+      const updated = await prisma.user.findUnique({
+        where: { id: targetId },
+        include: {
+          verifiedBy: { select: { id: true, name: true } },
+          managers: true,
+          listings: { where: { status: "active" }, take: 10, orderBy: { createdAt: "desc" } },
+          _count: {
+            select: {
+              listings: true,
+              incomingFollows: true,
+              outgoingFollows: true,
+            },
+          },
+        },
+      });
+      if (!updated) {
+        return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+      }
+
+      const { passwordHash, _count, verifiedBy, verificationNote, verifiedById, verifiedAt, ...rest } = updated;
+      const counts = {
+        listingsCount: _count.listings,
+        followerCount: _count.incomingFollows,
+        followingCount: _count.outgoingFollows,
+      };
+      return {
+        success: true,
+        data: {
+          ...rest,
+          verifiedAt: verifiedAt ? verifiedAt.toISOString() : null,
+          verifiedById,
+          verificationNote,
+          verifiedBy,
+          ...counts,
+        },
+      };
+    },
+  );
 
   app.get(
     "/:id/follow-status",
@@ -280,6 +482,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
           description: true,
           coverUrl: true,
           objectId: true,
+          communityId: true,
           createdAt: true,
           _count: { select: { photos: true } },
           object: { select: { id: true, title: true } },
@@ -297,6 +500,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
           description: r.description,
           coverUrl: r.coverUrl,
           objectId: r.objectId,
+          communityId: r.communityId,
           photoCount: r._count.photos,
           createdAt: r.createdAt.toISOString(),
           object: r.object,
@@ -309,6 +513,29 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     };
   });
 
+  app.get("/:id/activity", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id: targetId } = request.params as { id: string };
+    if (!z.string().uuid().safeParse(targetId).success) {
+      return reply.status(400).send({ success: false, message: "Некорректный идентификатор" });
+    }
+    const userExists = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+    if (!userExists) {
+      return reply.status(404).send({ success: false, message: "Пользователь не найден" });
+    }
+    const q = activityQuerySchema.parse(request.query);
+    const { items, total, totalPages } = await getProfileActivityPage(targetId, q.page, q.limit);
+    return {
+      success: true,
+      data: {
+        items,
+        total,
+        page: q.page,
+        limit: q.limit,
+        totalPages,
+      },
+    };
+  });
+
   app.get("/:id", { preHandler: [app.optionalAuthenticate] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
 
@@ -317,6 +544,7 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
       include: {
         managers: true,
         listings: { where: { status: "active" }, take: 10, orderBy: { createdAt: "desc" } },
+        verifiedBy: { select: { id: true, name: true } },
         _count: {
           select: {
             listings: true,
@@ -332,17 +560,40 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const isAuthenticated = Boolean(request.user);
-    const { passwordHash, _count, ...safe } = user;
+    const requesterRole = (request.user as { role?: string } | undefined)?.role;
+    const viewerIsModerator = requesterRole === "moderator";
+    const { passwordHash, _count, verifiedBy, verifiedAt, verificationNote, verifiedById, ...safe } = user;
     const counts = {
       listingsCount: _count.listings,
       followerCount: _count.incomingFollows,
       followingCount: _count.outgoingFollows,
     };
+    const verifiedAtIso = verifiedAt ? verifiedAt.toISOString() : null;
+    const verificationPayload = viewerIsModerator
+      ? { verificationNote, verifiedById, verifiedBy }
+      : {};
+
     if (!isAuthenticated) {
       const { email: _email, phone: _phone, ...publicSafe } = safe;
-      return { success: true, data: { ...publicSafe, ...counts } };
+      return {
+        success: true,
+        data: {
+          ...publicSafe,
+          verifiedAt: verifiedAtIso,
+          ...verificationPayload,
+          ...counts,
+        },
+      };
     }
-    return { success: true, data: { ...safe, ...counts } };
+    return {
+      success: true,
+      data: {
+        ...safe,
+        verifiedAt: verifiedAtIso,
+        ...verificationPayload,
+        ...counts,
+      },
+    };
   });
 
   app.put(
@@ -364,8 +615,14 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
         data,
       });
 
-      const { passwordHash, ...safe } = user;
-      return { success: true, data: safe };
+      const { passwordHash, verificationNote, verifiedById, verifiedBy, ...rest } = user;
+      return {
+        success: true,
+        data: {
+          ...rest,
+          verifiedAt: user.verifiedAt instanceof Date ? user.verifiedAt.toISOString() : user.verifiedAt ?? null,
+        },
+      };
     },
   );
 

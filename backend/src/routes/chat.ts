@@ -71,6 +71,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
             avatarUrl: true,
             companyName: true,
             role: true,
+            isVerified: true,
           },
         },
         participant2: {
@@ -80,6 +81,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
             avatarUrl: true,
             companyName: true,
             role: true,
+            isVerified: true,
           },
         },
         messages: { take: 1, orderBy: { createdAt: "desc" } },
@@ -116,6 +118,7 @@ export async function chatRoutes(app: FastifyInstance): Promise<void> {
         name: "Объекты-Ассистент",
         avatarUrl: "/bot-avatar.svg",
         companyName: null as string | null,
+        isVerified: false,
       },
       unreadCount: 0,
     };

@@ -6,6 +6,8 @@ export type PhotoAlbumListItem = {
   description: string | null;
   coverUrl: string | null;
   objectId: string | null;
+  /** Привязка к ленте альбомов сообщества (если задано). */
+  communityId?: string | null;
   photoCount: number;
   createdAt: string;
   object?: { id: string; title: string } | null;

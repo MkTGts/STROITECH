@@ -16,6 +16,8 @@ const MAX_BODY = 10_000;
 type WallPostFormCreateProps = {
   mode: "create";
   onPosted: () => void;
+  /** Публикация в ленте сообщества (участник). */
+  communityId?: string;
 };
 
 type WallPostFormEditProps = {
@@ -90,6 +92,7 @@ export function WallPostForm(props: WallPostFormProps) {
             body: b,
             attachments,
             ...(t ? { title: t.slice(0, 200) } : {}),
+            ...(props.communityId ? { communityId: props.communityId } : {}),
           }
         : {
             body: b,

@@ -4,6 +4,8 @@ export enum NotificationType {
   TENDER = "tender",
   SYSTEM = "system",
   NEW_FOLLOWER = "new_follower",
+  EVENT_RSVP = "event_rsvp",
+  EVENT_REMINDER = "event_reminder",
 }
 
 export type Notification = {

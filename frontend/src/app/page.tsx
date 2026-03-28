@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ListingsFeed } from "@/components/features/listings-feed";
 import { HomeFeedPreview } from "@/components/features/home-feed-preview";
+import { ContactRecommendationsWidget } from "@/components/features/contact-recommendations-widget";
+import { HomeEventsPreview } from "@/components/features/home-events-preview";
 import { SiteLogo } from "@/components/branding/site-logo";
 import { useAuthStore } from "@/lib/store";
 
@@ -162,6 +164,33 @@ export default function HomePage() {
           <HomeFeedPreview />
         </div>
       </section>
+
+      <section className="py-12 md:py-16">
+        <div className="mx-auto max-w-7xl px-4">
+          <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold md:text-3xl">События</h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground md:text-base">
+                Предстоящие встречи и мероприятия на площадке.
+              </p>
+            </div>
+            <Link href="/events" className="shrink-0 sm:self-center">
+              <Button variant="ghost" className="gap-2">
+                Все события <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+          <HomeEventsPreview />
+        </div>
+      </section>
+
+      {isAuthenticated ? (
+        <section className="border-t bg-muted/20 py-12 md:py-16">
+          <div className="mx-auto max-w-7xl px-4">
+            <ContactRecommendationsWidget limit={8} />
+          </div>
+        </section>
+      ) : null}
 
       <section className="bg-primary py-12 text-white md:py-16">
         <div className="mx-auto max-w-3xl px-4 text-center">

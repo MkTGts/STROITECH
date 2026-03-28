@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Prisma, ShareTargetType } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { getOptionalUserId, getUserId, getUserRole } from "../lib/auth";
+import { canModerateCommunityContent } from "../lib/community-permissions";
 import { normalizeFeedTagSlug, syncFeedPostSocial } from "../lib/feed-social";
 
 const MAX_WALL_BODY = 10_000;
@@ -204,6 +205,7 @@ const authorSelect = {
 
 const feedPostListInclude = {
   author: { select: authorSelect },
+  community: { select: { id: true, title: true } },
   _count: { select: { likes: true, views: true, comments: true } },
   postTags: { select: { tag: { select: { slug: true } } } },
 } satisfies Prisma.FeedPostInclude;
@@ -212,6 +214,7 @@ const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   authorId: z.string().uuid().optional(),
+  communityId: z.string().uuid().optional(),
   /** Без параметра по умолчанию только статьи (обратная совместимость общей ленты). `wall` включает и репосты (share). */
   kind: z.enum(["article", "wall", "share"]).optional(),
   /** Фильтр по нормалized slug хэштега (`tag` или `tag=#slug`). */
@@ -266,6 +269,7 @@ type FeedListRow = {
   createdAt: Date;
   updatedAt: Date;
   author: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  community?: { id: string; title: string } | null;
   _count: { likes: number; views: number; comments: number };
 };
 
@@ -309,6 +313,7 @@ function mapRowsToFeedListItems(
             sharePreview: sharePreviewMap?.get(p.id) ?? fallbackSharePreview,
           }
         : {}),
+      ...(p.community ? { community: { id: p.community.id, title: p.community.title } } : {}),
       ...(optionalUserId ? { likedByMe: likedSet.has(p.id) } : {}),
     };
   });
@@ -337,8 +342,25 @@ const postDetailCommentsQuerySchema = z.object({
   commentsLimit: z.coerce.number().int().min(1).max(200).default(200),
 });
 
-function canModifyComment(authorId: string, userId: string, role: string): boolean {
-  return authorId === userId || role === "moderator";
+async function canModifyComment(
+  authorId: string,
+  userId: string,
+  role: string,
+  postCommunityId: string | null,
+): Promise<boolean> {
+  if (authorId === userId) return true;
+  if (role === "moderator") return true;
+  return canModerateCommunityContent(userId, role, postCommunityId);
+}
+
+async function canModifyFeedPost(
+  userId: string,
+  role: string,
+  post: { authorId: string; communityId: string | null },
+): Promise<boolean> {
+  if (role === "moderator") return true;
+  if (post.authorId === userId) return true;
+  return canModerateCommunityContent(userId, role, post.communityId);
 }
 
 type CommentWithMeta = {
@@ -399,6 +421,8 @@ function serializeCommentBranch(
 const createFeedPostBodySchema = z
   .object({
     kind: z.enum(["article", "wall", "share"]).default("article"),
+    /** Публикация в ленте сообщества (нужно быть участником). */
+    communityId: z.string().uuid().optional(),
     title: z.string().trim().max(200).optional(),
     body: z.string().optional().default(""),
     excerpt: z
@@ -495,6 +519,7 @@ type SerializedFeedPostRow = {
   mentionUsers: { id: string; name: string }[];
   shareTarget?: ShareTargetType;
   shareTargetId?: string;
+  community?: { id: string; title: string };
 };
 
 async function serializeFeedPostRow(p: {
@@ -512,6 +537,7 @@ async function serializeFeedPostRow(p: {
   createdAt: Date;
   updatedAt: Date;
   author: { id: string; name: string; avatarUrl: string | null; companyName: string | null };
+  community?: { id: string; title: string } | null;
   _count: { likes: number; views: number; comments: number };
   shareTarget?: ShareTargetType | null;
   shareTargetId?: string | null;
@@ -543,6 +569,7 @@ async function serializeFeedPostRow(p: {
     ...(p.shareTarget != null && p.shareTargetId != null
       ? { shareTarget: p.shareTarget, shareTargetId: p.shareTargetId }
       : {}),
+    ...(p.community ? { community: { id: p.community.id, title: p.community.title } } : {}),
   };
 }
 
@@ -561,6 +588,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     const tagSlug = parseTagFilter(q.tag);
     const baseWhere: Prisma.FeedPostWhereInput = {
       status: "published",
+      communityId: null,
       ...feedPostTagWhere(tagSlug),
       author: {
         incomingFollows: {
@@ -642,6 +670,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     const tagSlug = parseTagFilter(q.tag);
     const baseWhere: Prisma.FeedPostWhereInput = {
       status: "published",
+      communityId: null,
       ...feedPostTagWhere(tagSlug),
       author: authorWhere,
     };
@@ -716,6 +745,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
           : { kind: q.kind ?? "article" }),
     };
     if (q.authorId) where.authorId = q.authorId;
+    if (q.communityId) where.communityId = q.communityId;
 
     const [rows, total] = await Promise.all([
       prisma.feedPost.findMany({
@@ -763,6 +793,26 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
       const userId = getUserId(request);
       const input = createFeedPostBodySchema.parse(request.body);
 
+      let resolvedCommunityId: string | null = input.communityId ?? null;
+      if (resolvedCommunityId) {
+        const comm = await prisma.community.findUnique({
+          where: { id: resolvedCommunityId },
+          select: { id: true },
+        });
+        if (!comm) {
+          return reply.status(400).send({ success: false, message: "Сообщество не найдено" });
+        }
+        const mem = await prisma.communityMember.findUnique({
+          where: { communityId_userId: { communityId: resolvedCommunityId, userId } },
+        });
+        if (!mem) {
+          return reply.status(403).send({
+            success: false,
+            message: "Вступите в сообщество, чтобы публиковать в его ленте",
+          });
+        }
+      }
+
       const publishedAt = new Date();
 
       if (input.kind === "article") {
@@ -777,6 +827,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
             attachments: [],
             status: "published",
             publishedAt,
+            communityId: resolvedCommunityId,
           },
           include: feedPostListInclude,
         });
@@ -816,6 +867,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
             shareTargetId: tid,
             status: "published",
             publishedAt,
+            communityId: resolvedCommunityId,
           },
           include: feedPostListInclude,
         });
@@ -847,6 +899,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
           attachments,
           status: "published",
           publishedAt,
+          communityId: resolvedCommunityId,
         },
         include: feedPostListInclude,
       });
@@ -873,13 +926,14 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
       const { id } = parsed.data;
       const userId = getUserId(request);
       const role = getUserRole(request);
-      const isModerator = role === "moderator";
       const patch = updateFeedPostSchema.parse(request.body);
 
-      const where = isModerator ? { id } : { id, authorId: userId };
-      const existing = await prisma.feedPost.findFirst({ where });
+      const existing = await prisma.feedPost.findFirst({ where: { id } });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Статья не найдена" });
+      }
+      if (!(await canModifyFeedPost(userId, role, existing))) {
+        return reply.status(403).send({ success: false, message: "Недостаточно прав" });
       }
 
       const data: {
@@ -977,12 +1031,13 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
       const { id } = parsed.data;
       const userId = getUserId(request);
       const role = getUserRole(request);
-      const isModerator = role === "moderator";
 
-      const where = isModerator ? { id } : { id, authorId: userId };
-      const existing = await prisma.feedPost.findFirst({ where });
+      const existing = await prisma.feedPost.findFirst({ where: { id } });
       if (!existing) {
         return reply.status(404).send({ success: false, message: "Статья не найдена" });
+      }
+      if (!(await canModifyFeedPost(userId, role, existing))) {
+        return reply.status(403).send({ success: false, message: "Недостаточно прав" });
       }
 
       await prisma.feedPost.delete({ where: { id } });
@@ -1071,7 +1126,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
 
       const post = await prisma.feedPost.findFirst({
         where: { id: postId, status: "published" },
-        select: { id: true },
+        select: { id: true, communityId: true },
       });
       if (!post) {
         return reply.status(404).send({ success: false, message: "Статья не найдена" });
@@ -1121,7 +1176,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
 
       const comment = await prisma.feedComment.findUnique({
         where: { id: commentId },
-        include: { post: { select: { status: true } } },
+        include: { post: { select: { status: true, communityId: true } } },
       });
       if (!comment || comment.post.status !== "published") {
         return reply.status(404).send({ success: false, message: "Комментарий не найден" });
@@ -1153,7 +1208,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
 
       const comment = await prisma.feedComment.findUnique({
         where: { id: commentId },
-        include: { post: { select: { status: true } } },
+        include: { post: { select: { status: true, communityId: true } } },
       });
       if (!comment || comment.post.status !== "published") {
         return reply.status(404).send({ success: false, message: "Комментарий не найден" });
@@ -1186,12 +1241,12 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
 
       const comment = await prisma.feedComment.findUnique({
         where: { id: commentId },
-        include: { post: { select: { status: true } } },
+        include: { post: { select: { status: true, communityId: true } } },
       });
       if (!comment || comment.post.status !== "published") {
         return reply.status(404).send({ success: false, message: "Комментарий не найден" });
       }
-      if (!canModifyComment(comment.authorId, userId, role)) {
+      if (!(await canModifyComment(comment.authorId, userId, role, comment.post.communityId))) {
         return reply.status(403).send({ success: false, message: "Недостаточно прав" });
       }
 
@@ -1237,12 +1292,12 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
 
       const comment = await prisma.feedComment.findUnique({
         where: { id: commentId },
-        include: { post: { select: { status: true } } },
+        include: { post: { select: { status: true, communityId: true } } },
       });
       if (!comment || comment.post.status !== "published") {
         return reply.status(404).send({ success: false, message: "Комментарий не найден" });
       }
-      if (!canModifyComment(comment.authorId, userId, role)) {
+      if (!(await canModifyComment(comment.authorId, userId, role, comment.post.communityId))) {
         return reply.status(403).send({ success: false, message: "Недостаточно прав" });
       }
 
@@ -1387,6 +1442,7 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
               ...(sharePreview ? { sharePreview } : {}),
             }
           : {}),
+        ...(post.community ? { community: { id: post.community.id, title: post.community.title } } : {}),
       },
     };
   });

@@ -1,4 +1,46 @@
+import type { VerificationCandidateItem } from "shared";
+
 const API_URL = normalizeApiBaseUrl(getPublicEnv("NEXT_PUBLIC_API_URL")) || "/api";
+
+export type VerificationCandidatesData = {
+  items: VerificationCandidateItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+/** Список кандидатов на верификацию (только модератор). */
+export async function fetchVerificationCandidates(params: {
+  search?: string;
+  page?: number;
+  limit?: number;
+  /** По умолчанию на бэкенде — только непроверенные. */
+  unverifiedOnly?: boolean;
+}): Promise<VerificationCandidatesData> {
+  const res = await api<{ success: boolean; data: VerificationCandidatesData }>(
+    "/users/moderation/verification-candidates",
+    {
+      params: {
+        search: params.search,
+        page: params.page,
+        limit: params.limit,
+        unverifiedOnly: params.unverifiedOnly === false ? "false" : undefined,
+      },
+    },
+  );
+  return res.data;
+}
+
+export async function patchUserVerification(
+  userId: string,
+  body: { granted: boolean; note?: string },
+): Promise<void> {
+  await api(`/users/${userId}/verification`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
 
 type FetchOptions = RequestInit & {
   params?: Record<string, string | number | undefined>;
@@ -151,6 +193,34 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+/** Экспорт метрик модерации в CSV (тот же префикс и авторизация, что у `api`). */
+export async function downloadModerationMetricsCsv(from?: string, to?: string): Promise<void> {
+  const token = _getAccessToken();
+  if (!token) throw new ApiError(401, "Нет авторизации");
+  const params = new URLSearchParams();
+  params.set("format", "csv");
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const url = `${API_URL}/moderation/metrics?${params.toString()}`;
+  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    let message = "Ошибка экспорта";
+    try {
+      const j = (await response.json()) as { message?: string };
+      if (j?.message) message = j.message;
+    } catch {
+      // ignore
+    }
+    throw new ApiError(response.status, message);
+  }
+  const blob = await response.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "metrics.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function _getAccessToken(): string | null {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Check, Building2, MessageCircle, AlertCircle, UserPlus } from "lucide-react";
+import { Bell, Check, Building2, MessageCircle, AlertCircle, UserPlus, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store";
@@ -16,6 +16,8 @@ const TYPE_ICONS: Record<string, typeof Bell> = {
   tender: AlertCircle,
   system: Bell,
   new_follower: UserPlus,
+  event_rsvp: CalendarDays,
+  event_reminder: CalendarDays,
 };
 
 export default function NotificationsPage() {

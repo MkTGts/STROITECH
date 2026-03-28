@@ -42,6 +42,8 @@ export type FeedPostListItem = {
   mentions: string[];
   /** Имена для отображения упоминаний (порядок совпадает с mentions). */
   mentionUsers: FeedMentionUser[];
+  /** Если пост опубликован в ленте сообщества. */
+  community?: { id: string; title: string };
   publishedAt: string;
   createdAt: string;
   updatedAt: string;

@@ -13,6 +13,7 @@ import {
   Pencil,
   LayoutList,
   Images,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ListingCard } from "@/components/features/listing-card";
 import { FollowButton } from "@/components/features/follow-button";
+import { VerifiedBadge } from "@/components/features/verified-badge";
 import { WallPostForm } from "@/components/features/wall-post-form";
 import { FeedShareCard } from "@/components/features/feed-share-card";
 import { FeedPlainSocialText, FeedTagChips } from "@/components/features/feed-social-body";
@@ -39,7 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuthStore } from "@/lib/store";
 import { api } from "@/lib/api";
-import type { FeedPostListItem, PhotoAlbumDetail, PhotoAlbumListItem } from "shared";
+import type { FeedPostListItem, PhotoAlbumDetail, PhotoAlbumListItem, ProfileActivityItem } from "shared";
 import { RUSSIAN_REGIONS } from "@/constants/regions";
 import { toast } from "sonner";
 
@@ -73,6 +75,7 @@ function normalizeFeedPostItem(p: FeedPostListItem): FeedPostListItem {
     tags: p.tags ?? [],
     mentions: p.mentions ?? [],
     mentionUsers: p.mentionUsers ?? [],
+    community: p.community,
   };
 }
 
@@ -86,6 +89,11 @@ export default function ProfileDetailPage() {
   const [articlePosts, setArticlePosts] = useState<FeedPostListItem[]>([]);
   const [albums, setAlbums] = useState<PhotoAlbumListItem[]>([]);
   const [feedPostsLoading, setFeedPostsLoading] = useState(true);
+  const [activityItems, setActivityItems] = useState<ProfileActivityItem[]>([]);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityTotalPages, setActivityTotalPages] = useState(1);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
   const [createAlbumOpen, setCreateAlbumOpen] = useState(false);
   const [newAlbumTitle, setNewAlbumTitle] = useState("");
   const [creatingAlbum, setCreatingAlbum] = useState(false);
@@ -123,6 +131,7 @@ export default function ProfileDetailPage() {
     let cancelled = false;
     setLoading(true);
     setFeedPostsLoading(true);
+    setActivityLoading(true);
 
     api<any>(`/users/${id}`)
       .then((res) => {
@@ -155,12 +164,19 @@ export default function ProfileDetailPage() {
       api<{ success: boolean; data: { items: PhotoAlbumListItem[] } }>(`/users/${id}/albums`, {
         params: { page: 1, limit: 50 },
       }),
+      api<{
+        success: boolean;
+        data: { items: ProfileActivityItem[]; totalPages: number };
+      }>(`/users/${id}/activity`, { params: { page: 1, limit: 20 } }),
     ])
-      .then(([wallRes, articleRes, albumsRes]) => {
+      .then(([wallRes, articleRes, albumsRes, actRes]) => {
         if (!cancelled) {
           setWallPosts((wallRes.data?.items ?? []).map(normalizeFeedPostItem));
           setArticlePosts((articleRes.data?.items ?? []).map(normalizeFeedPostItem));
           setAlbums(albumsRes.data?.items ?? []);
+          setActivityItems(actRes.data?.items ?? []);
+          setActivityTotalPages(actRes.data?.totalPages ?? 1);
+          setActivityPage(1);
         }
       })
       .catch(() => {
@@ -168,10 +184,15 @@ export default function ProfileDetailPage() {
           setWallPosts([]);
           setArticlePosts([]);
           setAlbums([]);
+          setActivityItems([]);
+          setActivityTotalPages(1);
         }
       })
       .finally(() => {
-        if (!cancelled) setFeedPostsLoading(false);
+        if (!cancelled) {
+          setFeedPostsLoading(false);
+          setActivityLoading(false);
+        }
       });
 
     return () => {
@@ -221,6 +242,24 @@ export default function ProfileDetailPage() {
     }
   }
 
+  async function loadActivityPage(page: number, append: boolean): Promise<void> {
+    if (!id || typeof id !== "string") return;
+    if (append) setActivityLoadingMore(true);
+    try {
+      const res = await api<{
+        success: boolean;
+        data: { items: ProfileActivityItem[]; totalPages: number };
+      }>(`/users/${id}/activity`, { params: { page, limit: 20 } });
+      setActivityItems((prev) => (append ? [...prev, ...(res.data?.items ?? [])] : res.data?.items ?? []));
+      setActivityTotalPages(res.data?.totalPages ?? 1);
+      setActivityPage(page);
+    } catch {
+      /* ignore */
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  }
+
   async function handleCreateAlbum(): Promise<void> {
     const t = newAlbumTitle.trim();
     if (!t) {
@@ -236,6 +275,7 @@ export default function ProfileDetailPage() {
       setCreateAlbumOpen(false);
       setNewAlbumTitle("");
       await refetchAlbums();
+      void loadActivityPage(1, false);
       router.push(`/albums/${res.data.id}`);
     } catch (err: any) {
       toast.error(err?.message || "Не удалось создать альбом");
@@ -306,8 +346,8 @@ export default function ProfileDetailPage() {
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-bold">{profile.name}</h1>
+                {profile.isVerified ? <VerifiedBadge /> : null}
                 <Badge variant="secondary">{ROLE_LABELS[profile.role]}</Badge>
-                {profile.isVerified && <Badge className="bg-green-500 text-white">Проверен</Badge>}
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                   <Link href={`/profiles/${profile.id}/followers`} className="hover:text-foreground hover:underline">
                     Подписчики: {profile.followerCount ?? 0}
@@ -329,6 +369,16 @@ export default function ProfileDetailPage() {
                   </Button>
                 )}
               </div>
+              {profile.isVerified && profile.verifiedAt ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Отметка «Проверен» с {formatShortDate(profile.verifiedAt)}
+                </p>
+              ) : null}
+              {isModerator && profile.verificationNote ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Примечание модератора: {profile.verificationNote}
+                </p>
+              ) : null}
               {editMode && isModerator ? (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="md:col-span-2">
@@ -478,6 +528,10 @@ export default function ProfileDetailPage() {
                 <Images className="h-4 w-4" />
                 Альбомы
               </TabsTrigger>
+              <TabsTrigger value="activity" className="gap-2">
+                <History className="h-4 w-4" />
+                Активность
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="wall" className="mt-0 space-y-4">
               {isOwnProfile && <WallPostForm mode="create" onPosted={() => void refetchWallPosts()} />}
@@ -622,6 +676,69 @@ export default function ProfileDetailPage() {
                     </Link>
                   ))}
                 </div>
+              )}
+            </TabsContent>
+            <TabsContent value="activity" className="mt-0 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Хронология: новые объявления, альбомы и прогресс этапов на объектах. Записи стены и статьи — в соседних
+                вкладках.
+              </p>
+              {activityLoading ? (
+                <div className="h-40 animate-pulse rounded-xl bg-muted" />
+              ) : activityItems.length === 0 ? (
+                <p className="rounded-xl border border-dashed bg-card/80 px-6 py-8 text-center text-sm text-muted-foreground">
+                  Пока нет событий для отображения.
+                </p>
+              ) : (
+                <>
+                  <ul className="space-y-3">
+                    {activityItems.map((ev) => (
+                      <li key={ev.id}>
+                        <Link href={ev.path}>
+                          <Card className="transition-shadow hover:shadow-md">
+                            <CardContent className="flex gap-3 p-3 sm:gap-4">
+                              <div className="h-16 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
+                                {ev.imageUrl ? (
+                                  <img src={ev.imageUrl} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full items-center justify-center text-muted-foreground">
+                                    {ev.type === "listing" ? (
+                                      <Newspaper className="h-7 w-7 opacity-40" aria-hidden />
+                                    ) : ev.type === "album" ? (
+                                      <Images className="h-7 w-7 opacity-40" aria-hidden />
+                                    ) : (
+                                      <LayoutList className="h-7 w-7 opacity-40" aria-hidden />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                {ev.subtitle ? (
+                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{ev.subtitle}</p>
+                                ) : null}
+                                <p className="mt-0.5 line-clamp-2 font-semibold text-foreground">{ev.title}</p>
+                                <time className="mt-1 block text-xs text-muted-foreground" dateTime={ev.occurredAt}>
+                                  {formatShortDate(ev.occurredAt)}
+                                </time>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  {activityPage < activityTotalPages ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={activityLoadingMore}
+                      onClick={() => void loadActivityPage(activityPage + 1, true)}
+                    >
+                      {activityLoadingMore ? "Загрузка…" : "Загрузить ещё"}
+                    </Button>
+                  ) : null}
+                </>
               )}
             </TabsContent>
           </Tabs>
